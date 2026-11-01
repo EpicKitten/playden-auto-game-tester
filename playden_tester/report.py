@@ -26,11 +26,18 @@ def alive_stats(log_tail):
 
 
 class RunWriter:
-    def __init__(self, folder, meta):
+    def __init__(self, folder, meta, resume=False):
         self.folder = Path(folder)
         self.folder.mkdir(parents=True, exist_ok=True)
         self.meta = meta
         self.results = []
+        saved = self.folder / "results.json"
+        if resume and saved.exists():
+            # A campaign that goes on keeps the results of its earlier runs.
+            from .runner import Result
+            known = set(Result.__dataclass_fields__)
+            rows = json.loads(saved.read_text(encoding="utf-8")).get("results", [])
+            self.results = [Result(**{k: v for k, v in row.items() if k in known}) for row in rows]
 
     def add(self, result):
         self.results.append(result)
