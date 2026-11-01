@@ -16,6 +16,15 @@ RESULT_LABELS = {
 }
 
 
+def alive_stats(log_tail):
+    """The counters of the last "PW_WINE64 alive" line of a title log (vk_shown, audible, frames_put, ...)."""
+    import re
+    lines = [l for l in log_tail.splitlines() if " alive " in l]
+    if not lines:
+        return {}
+    return {k: int(v) for k, v in re.findall(r"\b(\w+)=(\d+)\b", lines[-1])}
+
+
 class RunWriter:
     def __init__(self, folder, meta):
         self.folder = Path(folder)
@@ -57,6 +66,58 @@ class RunWriter:
         if r.status in ("survived", "not_closed") and verdict == "moving":
             return "✅ Runs (picture moving; playability not checked)"
         return RESULT_LABELS.get(r.status, r.status)
+
+    def write_issue(self, r, versions, logs_zip):
+        """A draft for Playden's test-report issue form (.github/ISSUE_TEMPLATE/test-report.yml), not posted."""
+        verdict = r.screen.get("verdict")
+        if r.status in ("survived", "not_closed") and verdict in ("moving", "still"):
+            status = "✅ Works: reaches the menu and plays"
+            note = "Reached the screen in the screenshot. Automated test: gameplay itself was not played; check before posting."
+        elif r.status in ("survived", "not_closed"):
+            alive = alive_stats(r.log_tail)
+            if alive.get("vk_shown", 0) > 0 or alive.get("audible", 0) > 0:
+                status = "❌ Broken: starts, but is not playable"
+                note = (f"The screen stayed black for {r.seconds_running:.0f} s while the game ran: Vulkan presented "
+                        f"{alive.get('vk_shown', 0)} frames and audio played ({alive.get('audible', 0)} audible).")
+            else:
+                status = "❌ Does not start: back to Home, or stays on the spinner"
+                note = f"Still on a black screen or the loading spinner after {r.seconds_running:.0f} s."
+        elif r.status in ("crashed", "exited_early", "did_not_start"):
+            status = "❌ Does not start: back to Home, or stays on the spinner"
+            note = f"Went back to Home: {r.detail}."
+        else:
+            return None  # a launch the tester could not make says nothing about the game
+        store = f"https://store.steampowered.com/app/{r.steam_app}" if r.steam_app else "(imported)"
+        tail = r.log_tail.strip().splitlines()[-15:]
+        lines = [
+            f"<!-- Draft from playden-auto-tester, {r.started_at}. Not posted. Title: [Test] {r.name} -->",
+            f"# [Test] {r.name}", "",
+            "### Game", "", f"{r.name} — {store}", "",
+            "### Result", "", status, "",
+            "### Versions", "", versions.strip(), "",
+            "### Where the game is installed", "", "Console storage", "",
+            "### Controls", "", "- [x] DualSense, default (Xbox controller) (virtual DualSense from padd)", "",
+            "### Game settings you changed", "", "None.", "",
+            "### What happened", "",
+            "1. Started from its PS5 title (Playden's relaunch helper), nothing pressed.",
+            f"2. {note}",
+            f"3. Screen before closing: {verdict or 'not checked'}"
+            + (f" (brightness {r.screen['brightness']}/255, motion {r.screen['motion']})" if r.screen else "") + ".",
+            f"4. Session in the log: {r.session or 'none'} ({r.session_seconds} s).", "",
+            "### Logs and screenshots", "",
+            f"`{logs_zip}` (attach it){', and `' + r.screenshot + '`' if r.screenshot else ''}.", "",
+        ]
+        if r.problems:
+            lines += ["Fatal lines found:", ""] + [f"- `{p}`" for p in r.problems] + [""]
+        if tail:
+            lines += [f"From `logs/title-{r.title}.log`, near the end:", "", "```", *tail, "```", ""]
+        lines += ["### Checks", "", "- [x] kstuff and ShadowMountPlus were loaded when I tested.",
+                  "- [x] I own this game (on Steam, or a copy I bought for an imported game).", ""]
+        folder = self.folder / "issues"
+        folder.mkdir(exist_ok=True)
+        path = folder / f"{r.title}-{r.steam_app or 'local'}.md"
+        path.write_text("\n".join(lines), encoding="utf-8")
+        return path
 
     def _write_report(self, r):
         store = f"https://store.steampowered.com/app/{r.steam_app}" if r.steam_app else "(not a Steam game)"

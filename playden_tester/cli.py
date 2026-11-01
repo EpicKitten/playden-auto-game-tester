@@ -10,6 +10,7 @@ from . import catalog, titlelog
 from .console import ELFLDR_PORT, LOGS, PLAYDEN, RELAUNCH_ELF, HOMEBREW, Console, LaunchError
 from .capture import Capture, CaptureError, list_devices
 from .filemanager import FileManager, FileManagerError
+from .library import LibraryError, fill_store_details, read_library
 from .padd import BUTTONS, PORT as PADD_PORT, PaddError
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, Runner, Settings, STUCK
@@ -252,6 +253,75 @@ def cmd_snapshot(args):
     return 0
 
 
+def cmd_library(args):
+    """Your Steam library with controller support from the store; writes a JSON and a CSV list."""
+    import csv
+    import json
+    files, _ = connect(args)
+    games = read_library(files)
+    cache_path = Path(args.data) / "store-cache.json"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
+    print(f"{len(games)} Steam games in the library; {sum(str(g.app) not in cache for g in games)} to look up")
+    try:
+        fill_store_details(games, cache)
+    finally:
+        cache_path.write_text(json.dumps(cache, indent=1), encoding="utf-8")
+    installed = {g.steam_app for g in catalog.games(files, read_logs=True) if g.steam_app}
+    rows = [dict(g.as_dict(), installed=g.app in installed) for g in games
+            if (args.controller == "any" or g.controller == args.controller) and g.store_type in ("game", "")
+            and "windows" in g.platforms and not g.demo]
+    rows.sort(key=lambda row: row["title"].lower())
+    out = Path(args.data) / f"games-controller-{args.controller}"
+    out.with_suffix(".json").write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    with open(out.with_suffix(".csv"), "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, ["app", "title", "controller", "installed", "playtime_minutes", "family_shared",
+                                         "developer", "platforms", "store_type", "demo"])
+        writer.writeheader()
+        writer.writerows(rows)
+    counts = {}
+    for g in games:
+        counts[g.controller or "unknown"] = counts.get(g.controller or "unknown", 0) + 1
+    print("controller support: " + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())))
+    print(f"{len(rows)} Windows games with controller support '{args.controller}' "
+          f"({sum(r['installed'] for r in rows)} installed): {out.with_suffix('.csv')}")
+    return 0
+
+
+def cmd_campaign(args):
+    from .campaign import Campaign, load_list
+    from .playden_ui import PlaydenUI
+    from .screen import Screen
+    files, console = connect(args)
+    if not args.capture:
+        print("a campaign needs the capture card: give --capture or set PS5_CAPTURE", file=sys.stderr)
+        return 1
+    if not console.has_padd():
+        print("a campaign needs padd: 'padd start', then 'padd assign'", file=sys.stderr)
+        return 1
+    if not console.port_open(ELFLDR_PORT):
+        print(f"elfldr is not running on port {ELFLDR_PORT}", file=sys.stderr)
+        return 1
+    games = load_list(args.list)
+    if args.only:
+        wanted = {int(a) for a in args.only}
+        games = [g for g in games if g.app in wanted]
+    capture = Capture(args.capture)
+    ui = PlaydenUI(console.padd, Screen(capture))
+    out = Path(args.out)
+    campaign = Campaign(console, ui, capture,
+                        Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
+                        {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
+                        keep=args.keep, max_gb=args.max_gb)
+    code = campaign.run(games, limit=args.limit)
+    statuses = {}
+    for entry in campaign.state.values():
+        statuses[entry.get("status")] = statuses.get(entry.get("status"), 0) + 1
+    print("campaign so far: " + ", ".join(f"{k} {v}" for k, v in sorted(statuses.items(), key=str)))
+    print(f"issue drafts in {out / 'issues'}, logs in {out / 'logs'}")
+    return code
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="playden-tester", description="Test Playden games on a jailbroken PS5 remotely.")
     parser.add_argument("--host", default=os.environ.get("PS5_HOST"), help="PS5 address (or set PS5_HOST)")
@@ -293,6 +363,19 @@ def main(argv=None):
     p.set_defaults(func=cmd_stick)
     sub.add_parser("close", help="close the running game (padd)").set_defaults(func=cmd_close)
     sub.add_parser("home", help="suspend the running game and show Home (padd)").set_defaults(func=cmd_home)
+    p = sub.add_parser("library", help="list your Steam games by controller support (asks the Steam store)")
+    p.add_argument("--controller", default="full", choices=["full", "partial", "none", "any"])
+    p.add_argument("--data", default="data", help="folder for the lists and the store cache")
+    p.set_defaults(func=cmd_library)
+    p = sub.add_parser("campaign", help="download (through Playden), test, collect logs and uninstall each game of a list")
+    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--out", default="results/campaign", help="folder for results, logs, issue drafts and progress")
+    p.add_argument("--watch", type=float, default=90.0)
+    p.add_argument("--max-gb", type=float, help="skip games bigger than this")
+    p.add_argument("--limit", type=int, help="test at most this many games this time")
+    p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
+    p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
+    p.set_defaults(func=cmd_campaign)
     p = sub.add_parser("snapshot", help="save a frame from the capture card")
     p.add_argument("file", nargs="?", help="PNG or JPEG path (default snapshot-<time>.png)")
     p.add_argument("--list", action="store_true", help="list capture devices")
@@ -309,7 +392,7 @@ def main(argv=None):
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)
-    except (FileManagerError, PaddError, CaptureError, ValueError) as error:
+    except (FileManagerError, PaddError, CaptureError, LibraryError, ValueError, LaunchError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

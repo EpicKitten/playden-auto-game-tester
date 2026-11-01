@@ -125,14 +125,15 @@ class Runner:
         self._settle(result)
         return result
 
-    def fill_pending(self):
+    def fill_pending(self, close_playden=None):
         """Read the sessions the logs did not have yet. Playden writes every game's title log when it starts,
         so start it, wait for the logs, and close it again when padd can. The results that changed."""
         if not self.pending:
             return []
         self.say(f"Starting Playden to bring {len(self.pending)} game log(s) up to date")
         try:
-            self.console.launch(PLAYDEN)
+            if not self.console.is_running(PLAYDEN):
+                self.console.launch(PLAYDEN)
         except LaunchError as error:
             self.say(f"Could not start Playden: {error}")
             return []
@@ -143,7 +144,7 @@ class Runner:
         self.pending = [(r, b) for r, b in self.pending if r not in filled]
         for result in filled:
             self._settle(result)
-        if self.settings.auto_close:
+        if self.settings.auto_close if close_playden is None else close_playden:
             try:
                 self.console.close(PLAYDEN)
             except LaunchError as error:
