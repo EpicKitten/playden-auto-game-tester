@@ -41,17 +41,26 @@ def dialog_names(lines, name):
     return normalize(name) + "frees" in text
 
 
-def search_text(name, limit=24):
-    """What to type for a game: its words with only letters, digits and spaces (the keys the ABC page has)."""
-    words, text = [], ""
-    for word in name.upper().replace("&", " ").split():
-        word = "".join(c for c in word if c.isascii() and c.isalnum())
-        if not word:
-            continue
-        if len(text) + len(word) + (1 if text else 0) > limit:
+TYPEABLE = set("".join(KEYBOARD)) | {" "}
+
+
+def search_text(name, limit=28):
+    """What to type for a game. Playden keeps a game when the search is part of its title as written (case
+    folded), so this is the start of the title, up to the first character the ABC page has no key for."""
+    text = ""
+    for c in name.upper():
+        if c not in TYPEABLE or len(text) >= limit:
             break
-        text = f"{text} {word}" if text else word
-    return text
+        text += c
+    return text.rstrip()
+
+
+def predict_results(library, typed):
+    """The games Playden's Library (scope All) shows for a search, in its order: case-folded title contains the
+    text, sorted by case-folded title, then by app ID (Playden src/homebrew/browse.cpp filtered_games)."""
+    query = typed.casefold()
+    found = [g for g in library if query in g.title.casefold()]
+    return sorted(found, key=lambda g: (g.title.casefold(), g.app))
 
 
 def key_moves(text, start=KEYBOARD_START):
@@ -170,31 +179,58 @@ class PlaydenUI:
         title = " ".join(l.text for l in lines if 380 < l.y < 640)
         return same_name(title, game.title)
 
-    def open_game(self, game, max_results=12):
-        """From anywhere in Playden to the game's details page (Install or Play button focused)."""
+    def result_count(self, lines):
+        """The "N games" count under the Library's side menu, or None when it cannot be read."""
+        for line in lines:
+            words = line.text.split()
+            if line.x < 420 and len(words) >= 2 and words[0].isdigit() and words[1].startswith("game"):
+                return int(words[0])
+        return None
+
+    def open_game(self, game, library=None, max_results=24):
+        """From anywhere in Playden to the game's details page (Install or Play button focused).
+
+        With the library (OwnedGame list), the results are predicted: when Playden's count matches, the game's
+        tile is the predicted one. Otherwise each result's page is checked against the game."""
+        typed = search_text(game.title)
+        if len(typed) < 2:
+            raise UIError(f"{game.title}: no typeable start to search for")
         self.library_all()
         self.press("right", gap=0.6)  # back into the grid, so touchpad opens search
         self.press("touchpad", gap=1.0)
         self.expect("Search", "Done", settle=0.8)
-        self.type_search(search_text(game.title))
-        lines = self.expect("games", settle=1.5)
-        counts = [l.text for l in lines if l.x < 420 and "games" in l.text]
-        count = int(counts[0].split()[0]) if counts and counts[0].split()[0].isdigit() else max_results
+        self.type_search(typed)
+        lines = self.expect("game", settle=1.5)
+        count = self.result_count(lines)
+        if count is None:
+            raise UIError(f"{game.title}: could not read how many games the search for {typed!r} found")
         if count == 0:
-            raise UIError(f"{game.title}: not found in the library")
-        typed = search_text(game.title)
-        whole_name = normalize(typed) == normalize(game.title)
+            raise UIError(f"{game.title}: the search for {typed!r} found nothing")
+        predicted = predict_results(library, typed) if library else []
+        apps = [g.app for g in predicted]
+        if predicted and len(predicted) == count and game.app in apps:
+            index = apps.index(game.app)
+            self.press("down", times=index // 6, gap=0.3)
+            self.press("right", times=index % 6, gap=0.3)
+            self.press("cross", gap=1.8)
+            lines, _, _ = self.read(0.5)
+            description = " ".join(l.text for l in lines if l.y > 840 and l.x < 1250)
+            if game.description and description and similar(description[:160], game.description[:160]) < 0.3:
+                self.press("circle", gap=1.0)
+                raise UIError(f"{game.title}: result {index + 1} of {count} is another game")
+            return lines
         for index in range(min(count, max_results)):
             self.press("cross", gap=1.8)
             lines, _, _ = self.read(0.5)
             # One result for the game's whole name is the game, even when its page shows a logo and no text.
-            if self.details_match(lines, game) or (count == 1 and whole_name):
+            if self.details_match(lines, game) or (count == 1 and normalize(typed) == normalize(game.title)):
                 return lines
             self.press("circle", gap=1.0)
-            self.press("right" if (index + 1) % 6 else "down")
-            if (index + 1) % 6 == 0:
-                self.press("left", times=5, gap=0.25)
-        raise UIError(f"{game.title}: none of the {count} search results is this game")
+            if index + 1 < count:
+                self.press("right" if (index + 1) % 6 else "down")
+                if (index + 1) % 6 == 0:
+                    self.press("left", times=5, gap=0.25)
+        raise UIError(f"{game.title}: none of the {min(count, max_results)} search results is this game")
 
     # --- Install and uninstall ----------------------------------------------------------------------------------
 

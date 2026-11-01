@@ -340,3 +340,28 @@ class NameMatchTest(unittest.TestCase):
         self.assertTrue(dialog_names(dialog("Balatro. Frees about 67 MB. Their files and PS5 titles are"), "Balatro"))
         self.assertFalse(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life"))
         self.assertTrue(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life 2"))
+
+
+class SearchTest(unittest.TestCase):
+    def test_typed_text_is_the_start_of_the_title_as_written(self):
+        from playden_tester.playden_ui import search_text
+        self.assertEqual(search_text("Half-Life 2"), "HALF-LIFE 2")
+        self.assertEqual(search_text("METAL GEAR SOLID 3: Snake Eater"), "METAL GEAR SOLID 3")
+        self.assertEqual(search_text("Mirror's Edge"), "MIRROR")
+
+    def test_predicted_results_follow_playden_order(self):
+        from playden_tester.library import OwnedGame
+        from playden_tester.playden_ui import predict_results, search_text
+        library = [OwnedGame(620, "Portal 2"), OwnedGame(400, "Portal"), OwnedGame(220, "Half-Life 2"),
+                   OwnedGame(360, "Half-Life 2: Deathmatch"), OwnedGame(70, "Half-Life"),
+                   OwnedGame(684410, "Bridge Constructor Portal")]
+        self.assertEqual([g.app for g in predict_results(library, search_text("Half-Life 2"))], [220, 360])
+        self.assertEqual([g.app for g in predict_results(library, "PORTAL")], [684410, 400, 620])
+
+    def test_result_count_is_read_or_none(self):
+        from playden_tester.playden_ui import PlaydenUI
+        from playden_tester.screen import Line
+        ui = PlaydenUI(None, None)
+        self.assertEqual(ui.result_count([Line("2 games · Some game details", 96, 704, 300, 20)]), 2)
+        self.assertEqual(ui.result_count([Line("1 games · Some", 96, 704, 300, 20)]), 1)
+        self.assertIsNone(ui.result_count([Line("Some game details are unavailable.", 96, 704, 300, 20)]))

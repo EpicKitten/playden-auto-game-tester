@@ -38,6 +38,7 @@ class Campaign:
         self.logs = LogCollector(self.files)
         self.state_path = self.out / "campaign.json"
         self.state = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else {}
+        self.library = None  # every owned game (library cache), to predict Library search results
 
     def save(self):
         self.state_path.write_text(json.dumps(self.state, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -91,7 +92,7 @@ class Campaign:
                 entry.update(uninstall_error=str(error))
             self.save()
             self.playden_front()
-            lines = self.ui.open_game(game)
+            lines = self.ui.open_game(game, self.library)
             free_gb = free_space(lines) or free_gb
             if free_gb - self.reserve_gb >= need_gb:
                 return free_gb
@@ -108,7 +109,7 @@ class Campaign:
             except OSError:
                 pass
         self.playden_front()
-        lines = self.ui.open_game(game)
+        lines = self.ui.open_game(game, self.library)
         button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
         gb = size_gb(button)
         if self.max_gb and gb and gb > self.max_gb:
@@ -133,7 +134,7 @@ class Campaign:
                 continue
             # The title exists; Playden is ready when the game's page offers Play.
             self.playden_front()
-            lines = self.ui.open_game(game)
+            lines = self.ui.open_game(game, self.library)
             focused = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 500).lower()
             self.ui.press("circle")
             if "play" in focused:
