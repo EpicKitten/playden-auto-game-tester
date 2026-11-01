@@ -189,6 +189,34 @@ class PlaydenUI:
         title = " ".join(l.text for l in lines if 380 < l.y < 640)
         return same_name(title, game.title)
 
+    def focused_tile(self):
+        """(row, column) of the focused Library tile on screen, from the orange outline, or None. Tiles start at
+        x 445 and y 150, 234 px apart across and 339 px down."""
+        _, box, _ = self.read(0.6, (420, 120, 1900, 1000))
+        if not box:
+            return None
+        return round((box[1] - 130) / 339), round((box[0] - 430) / 234)
+
+    def goto_tile(self, index, tries=8):
+        """Move the focus to result `index` (6 to a row) and check it there before anything opens it. Presses
+        sent while the results were still drawing were dropped on the console, so each move is checked."""
+        time.sleep(1.0)
+        row, col = index // 6, index % 6
+        self.press("down", times=row, gap=0.6)
+        for _ in range(tries):
+            here = self.focused_tile()
+            if here is None:
+                raise UIError("no focused tile in the Library grid")
+            # Rows past the second scroll the grid, so only the first two can be checked on screen.
+            row_ok = row > 1 or here[0] == row
+            if here[1] == col and row_ok:
+                return
+            if not row_ok:
+                self.press("down" if here[0] < row else "up", gap=0.6)
+            else:
+                self.press("right" if here[1] < col else "left", gap=0.6)
+        raise UIError(f"could not move to result {index + 1}")
+
     def result_count(self, lines):
         """The "N games" count under the Library's side menu, or None when it cannot be read."""
         for line in lines:
@@ -222,8 +250,7 @@ class PlaydenUI:
         apps = [g.app for g in predicted]
         if predicted and len(predicted) == count and game.app in apps:
             index = apps.index(game.app)
-            self.press("down", times=index // 6, gap=0.3)
-            self.press("right", times=index % 6, gap=0.3)
+            self.goto_tile(index)
             self.press("cross", gap=1.8)
             lines, _, _ = self.read(0.5)
             description = " ".join(l.text for l in lines if l.y > 840 and l.x < 1250)
