@@ -316,12 +316,18 @@ class PlaydenUI:
             self.press("circle")
             raise UIError("the focus is not on the dialog's Uninstall button")
         self.press("cross")
+        # Playden removes the PS5 title first, then deletes the files: an 18.8 GB game took over 3 minutes. The
+        # title gone means the uninstall is under way; files still there after that are left to finish.
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             time.sleep(3)
             games = {e["name"] for e in files.list("/data/playden-games")}
             titles = {e["name"] for e in files.list("/data/homebrew")}
-            if str(app) not in games and (not title or title not in titles):
+            title_gone = not title or title not in titles
+            if title_gone and (str(app) not in games or not title):
                 self.press("circle")  # close the list
-                return
+                return "done"
+            if title_gone and time.monotonic() > deadline - timeout / 2:
+                self.press("circle")
+                return "files still being deleted"
         raise UIError(f"{name}: still on the console {timeout} s after Uninstall")

@@ -175,9 +175,10 @@ class Campaign:
             # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
             try:
                 self.playden_front()
-                self.ui.uninstall(game.title, self.files, game.app, title)
-                self.mark(game, uninstalled=True)
-                self.say(f"[{game.app}] {game.title}: uninstalled (saves kept)")
+                how = self.ui.uninstall(game.title, self.files, game.app, title)
+                self.mark(game, uninstalled=True, uninstall_error="")
+                self.say(f"[{game.app}] {game.title}: uninstalled (saves kept"
+                         f"{'; files still being deleted' if how != 'done' else ''})")
             except UIError as error:
                 self.mark(game, uninstalled=False, uninstall_error=str(error))
                 self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
@@ -192,6 +193,11 @@ class Campaign:
                 self.console.close(title)
             except LaunchError as error:
                 raise UIError(f"{title} is still running and could not be closed: {error}") from None
+        titles = self.titles()
+        for entry in self.state.values():
+            # An uninstall that timed out while Playden was still deleting files: the title went, so it worked.
+            if "still on the console" in entry.get("uninstall_error", "") and entry.get("ps5_title") not in titles:
+                entry.update(uninstalled=True, uninstall_error="")
         by_title = {r.title: r for r in self.writer.results}
         for entry in self.state.values():
             result = by_title.get(entry.get("ps5_title"))
