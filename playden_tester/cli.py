@@ -312,7 +312,7 @@ def cmd_campaign(args):
     campaign = Campaign(console, ui, capture,
                         Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
-                        keep=args.keep, max_gb=args.max_gb)
+                        keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb)
     code = campaign.run(games, limit=args.limit)
     statuses = {}
     for entry in campaign.state.values():
@@ -371,7 +371,9 @@ def main(argv=None):
     p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
     p.add_argument("--out", default="results/campaign", help="folder for results, logs, issue drafts and progress")
     p.add_argument("--watch", type=float, default=90.0)
-    p.add_argument("--max-gb", type=float, help="skip games bigger than this")
+    p.add_argument("--max-gb", type=float, help="skip games bigger than this (default: none; storage is managed)")
+    p.add_argument("--reserve-gb", type=float, default=15.0,
+                   help="free space always left on the console; tested games are uninstalled to make room")
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")

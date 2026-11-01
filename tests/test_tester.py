@@ -269,3 +269,48 @@ class AliveTest(unittest.TestCase):
                        screen={"verdict": "black", "brightness": 0.3, "motion": 0.2, "frames": 16})
             writer.add(r)
             self.assertIn("❌ Broken: starts", writer.write_issue(r, "|", "x.zip").read_text(encoding="utf-8"))
+
+
+class StorageTest(unittest.TestCase):
+    def test_sizes_and_free_space(self):
+        from playden_tester.campaign import free_space, size_gb
+        from playden_tester.screen import Line
+        self.assertAlmostEqual(size_gb("Install 67 MB"), 67 / 1024)
+        self.assertEqual(size_gb("Install 22,1 GB"), 22.1)
+        lines = [Line("Install 67 MB", 136, 672, 160, 20),
+                 Line("Installs to Console storage · 172.7 GB free", 97, 762, 400, 21)]
+        self.assertEqual(free_space(lines), 172.7)
+        self.assertIsNone(free_space(lines[:1]))
+
+    def test_evictable_are_tested_and_still_installed_oldest_first(self):
+        import tempfile
+        from playden_tester.campaign import Campaign
+
+        class Files:
+            def list(self, path):
+                return [{"name": n, "type": "d"} for n in ("FAKE78001", "FAKE78002", "FAKE78003")]
+
+        class Con:
+            files = Files()
+
+        with tempfile.TemporaryDirectory() as folder:
+            c = Campaign(Con(), None, None, Settings(), folder, {})
+            c.state = {
+                "1": {"app": 1, "title": "Old", "ps5_title": "FAKE78001", "status": "survived", "updated": "2026-11-01 10:00"},
+                "2": {"app": 2, "title": "New", "ps5_title": "FAKE78002", "status": "crashed", "updated": "2026-11-01 12:00"},
+                "3": {"app": 3, "title": "Gone", "ps5_title": "FAKE78003", "status": "survived", "uninstalled": True},
+                "4": {"app": 4, "title": "Orphan", "ps5_title": "FAKE78002", "status": "survived", "uninstall_error": "x"},
+                "5": {"app": 5, "title": "Busy", "ps5_title": "FAKE78001", "status": "testing"},
+            }
+            self.assertEqual([e["title"] for e in c.evictable()], ["Old", "New"])
+
+    def test_results_carry_over_when_a_campaign_goes_on(self):
+        import tempfile
+        from playden_tester.report import RunWriter
+        from playden_tester.runner import Result
+        with tempfile.TemporaryDirectory() as folder:
+            first = RunWriter(folder, {})
+            first.add(Result("FAKE78023", "Brotato", 1942280, status=SURVIVED))
+            again = RunWriter(folder, {}, resume=True)
+            self.assertEqual([r.name for r in again.results], ["Brotato"])
+            self.assertEqual(RunWriter(folder, {}).results, [])

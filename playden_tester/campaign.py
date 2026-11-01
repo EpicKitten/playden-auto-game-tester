@@ -28,12 +28,12 @@ def size_gb(text):
 
 class Campaign:
     def __init__(self, console, ui, capture, settings, out, meta, say=print, keep=False, max_gb=None,
-                 ready_timeout=3600):
+                 reserve_gb=15.0):
         self.console, self.ui, self.files = console, ui, console.files
         self.settings, self.say, self.keep, self.max_gb = settings, say, keep, max_gb
-        self.ready_timeout = ready_timeout
+        self.reserve_gb = reserve_gb  # free space always left on the console
         self.out = Path(out)
-        self.writer = RunWriter(self.out, meta)
+        self.writer = RunWriter(self.out, meta, resume=True)
         self.runner = Runner(console, settings, say=say, capture=capture, shots=self.out)
         self.logs = LogCollector(self.files)
         self.state_path = self.out / "campaign.json"
@@ -68,8 +68,38 @@ class Campaign:
             self.ui.press("circle", gap=1.0)  # close a sheet or dialog left open
         raise UIError("Playden's tabs are not on screen")
 
+    def evictable(self):
+        """Games this campaign tested that are still installed, oldest first: what can go to make room."""
+        entries = [e for e in self.state.values() if e.get("ps5_title") and e.get("uninstalled") is not True
+                   and e.get("status") not in (None, "testing", "error", "skipped", "deferred")
+                   and not e.get("uninstall_error")]
+        titles = self.titles()
+        return sorted((e for e in entries if e["ps5_title"] in titles), key=lambda e: e.get("updated", ""))
+
+    def make_room(self, game, need_gb, free_gb):
+        """Uninstall tested games until need_gb fits with reserve_gb left free. The free space afterwards, read
+        again from the game's page; None when it cannot fit."""
+        for entry in self.evictable():
+            self.say(f"[{game.app}] {game.title}: needs {need_gb:.1f} GB, {free_gb:.1f} GB free; "
+                     f"uninstalling tested {entry['title']}")
+            self.ui.press("circle")
+            self.playden_front()
+            try:
+                self.ui.uninstall(entry["title"], self.files, entry["app"], entry["ps5_title"])
+                entry.update(uninstalled=True, evicted_for=game.app, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
+            except UIError as error:
+                entry.update(uninstall_error=str(error))
+            self.save()
+            self.playden_front()
+            lines = self.ui.open_game(game)
+            free_gb = free_space(lines) or free_gb
+            if free_gb - self.reserve_gb >= need_gb:
+                return free_gb
+        return None
+
     def download(self, game):
-        """Install the game through Playden and wait until it can be played; its new PS5 title ID."""
+        """Install the game through Playden, making room first when it does not fit, and wait until it can be
+        played; its new PS5 title ID."""
         before = self.titles()
         if not game.description:
             from .library import store_details
@@ -84,9 +114,18 @@ class Campaign:
         if self.max_gb and gb and gb > self.max_gb:
             self.ui.press("circle")
             raise SkipGame(f"{gb:.1f} GB is over the {self.max_gb:g} GB limit")
-        self.say(f"[{game.app}] {game.title}: installing ({button.strip()})")
+        free = free_space(lines)
+        need = (gb or 0) * INSTALL_OVERHEAD
+        if free is not None and free - self.reserve_gb < need:
+            if self.make_room(game, need, free) is None:
+                self.ui.press("circle")
+                raise DeferGame(f"needs {need:.1f} GB with {self.reserve_gb:g} GB kept free; {free:.1f} GB free "
+                                "and no tested game left to uninstall")
+        self.say(f"[{game.app}] {game.title}: installing ({button.strip()}; "
+                 f"{'?' if free is None else f'{free:.1f}'} GB free)")
         self.ui.install(game, self.files)
-        deadline = time.monotonic() + self.ready_timeout
+        # A download of g GB at no less than about 4 MB/s, plus preparation.
+        deadline = time.monotonic() + max(1800, (gb or 10) * 300)
         while time.monotonic() < deadline:
             time.sleep(30)
             new = self.titles() - before
@@ -112,6 +151,10 @@ class Campaign:
             except SkipGame as reason:
                 self.say(f"[{game.app}] {game.title}: skipped, {reason}")
                 self.mark(game, status="skipped", detail=str(reason))
+                return None
+            except DeferGame as reason:
+                self.say(f"[{game.app}] {game.title}: deferred, {reason}")
+                self.mark(game, status="deferred", detail=str(reason))
                 return None
         self.mark(game, status="testing", ps5_title=title, downloaded=downloaded)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
@@ -139,8 +182,27 @@ class Campaign:
                 self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
         return result
 
+    def recover(self):
+        """Before going on after a stop: close a game left running, and give back the test result of games whose
+        uninstall failed under the older code (their status then read "error")."""
+        for title in sorted(t for t in self.console.running_titles() if t.startswith("FAKE78")):
+            self.say(f"closing {title}, left running by the last run")
+            try:
+                self.console.close(title)
+            except LaunchError as error:
+                raise UIError(f"{title} is still running and could not be closed: {error}") from None
+        by_title = {r.title: r for r in self.writer.results}
+        for entry in self.state.values():
+            result = by_title.get(entry.get("ps5_title"))
+            if entry.get("status") == "error" and "not in Installed games" in entry.get("detail", "") and result:
+                entry.update(status=result.status, screen=result.screen.get("verdict", ""), uninstalled=False,
+                             uninstall_error=entry["detail"], detail=result.detail)
+        self.save()
+
     def run(self, games, limit=None):
-        done = {app for app, entry in self.state.items() if entry.get("status") not in (None, "testing")}
+        self.recover()
+        done = {app for app, entry in self.state.items()
+                if entry.get("status") not in (None, "testing", "deferred")}
         todo = [g for g in games if str(g.app) not in done][:limit]
         self.say(f"{len(todo)} games to test ({len(done)} already done); results in {self.out}")
         failures = 0
@@ -168,6 +230,21 @@ class Campaign:
 
 class SkipGame(Exception):
     pass
+
+
+class DeferGame(Exception):
+    """Not enough room now; the next run tries again."""
+
+
+INSTALL_OVERHEAD = 1.25  # the download plus preparation (bottle, shader caches) over the size Playden shows
+
+
+def free_space(lines):
+    """GB free on the install volume, from a details page ("Installs to Console storage - 172.7 GB free")."""
+    for line in lines:
+        if "free" in line.text.lower() and "install" in line.text.lower():
+            return size_gb(line.text)
+    return None
 
 
 def load_list(path):
