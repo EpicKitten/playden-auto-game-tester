@@ -247,29 +247,23 @@ class PlaydenUI:
             raise UIError(f"{game.title}: could not read how many games the search for {typed!r} found")
         if count == 0:
             raise UIError(f"{game.title}: the search for {typed!r} found nothing")
-        predicted = predict_results(library, typed) if library else []
-        apps = [g.app for g in predicted]
-        if predicted and len(predicted) == count and game.app in apps:
-            index = apps.index(game.app)
+        # Playden's Library can be sorted another way than by name (it is here), so the predicted place is only
+        # where to look first; every result is opened and its page compared with the game before it counts.
+        predicted = [g.app for g in predict_results(library, typed)] if library else []
+        order = list(range(min(count, max_results)))
+        if len(predicted) == count and game.app in predicted and predicted.index(game.app) in order:
+            first = predicted.index(game.app)
+            order.remove(first)
+            order.insert(0, first)
+        whole_name = count == 1 and normalize(typed) == normalize(game.title)
+        for index in order:
             self.goto_tile(index)
             self.press("cross", gap=1.8)
             lines, _, _ = self.read(0.5)
-            description = " ".join(l.text for l in lines if l.y > 840 and l.x < 1250)
-            if game.description and description and similar(description[:160], game.description[:160]) < 0.3:
-                self.press("circle", gap=1.0)
-                raise UIError(f"{game.title}: result {index + 1} of {count} is another game")
-            return lines
-        for index in range(min(count, max_results)):
-            self.press("cross", gap=1.8)
-            lines, _, _ = self.read(0.5)
             # One result for the game's whole name is the game, even when its page shows a logo and no text.
-            if self.details_match(lines, game) or (count == 1 and normalize(typed) == normalize(game.title)):
+            if self.details_match(lines, game) or whole_name:
                 return lines
-            self.press("circle", gap=1.0)
-            if index + 1 < count:
-                self.press("right" if (index + 1) % 6 else "down")
-                if (index + 1) % 6 == 0:
-                    self.press("left", times=5, gap=0.25)
+            self.press("circle", gap=1.2)
         raise UIError(f"{game.title}: none of the {min(count, max_results)} search results is this game")
 
     # --- Install and uninstall ----------------------------------------------------------------------------------
