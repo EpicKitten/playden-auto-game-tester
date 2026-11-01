@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "playden-auto-tester"
+version = "0.1.0"
+description = "Test Playden game compatibility on a jailbroken PS5 remotely from a PC"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+playden-tester = "playden_tester.cli:main"
+
+[tool.setuptools]
+packages = ["playden_tester"]
