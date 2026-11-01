@@ -168,5 +168,6 @@ def load_list(path):
     """The games of a `library` list (JSON): OwnedGame-like objects."""
     from .library import OwnedGame
     rows = json.loads(Path(path).read_text(encoding="utf-8"))
+    rows.sort(key=lambda row: not row.get("installed"))  # installed games first: no download to wait for
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]
