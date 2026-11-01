@@ -4,7 +4,8 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
-SUMMARY_FIELDS = ["title", "name", "steam_app", "status", "detail", "seconds_running", "session_seconds", "problems"]
+SUMMARY_FIELDS = ["title", "name", "steam_app", "status", "screen", "detail", "seconds_running", "session_seconds",
+                  "problems", "screenshot"]
 RESULT_LABELS = {
     "survived": "✅ Runs (survived the watch time; playability not checked)",
     "crashed": "❌ Broken: crashed",
@@ -36,8 +37,20 @@ class RunWriter:
             for result in self.results:
                 row = asdict(result)
                 row["problems"] = " | ".join(result.problems)
+                row["screen"] = result.screen.get("verdict", "")
                 row["seconds_running"] = round(result.seconds_running)
                 writer.writerow(row)
+
+    @staticmethod
+    def _label(r):
+        verdict = r.screen.get("verdict")
+        if r.status in ("survived", "not_closed") and verdict == "black":
+            return "⚠️ Starts, but the screen stayed black"
+        if r.status in ("survived", "not_closed") and verdict == "still":
+            return "✅ Runs (picture did not move while watched: a menu, or frozen)"
+        if r.status in ("survived", "not_closed") and verdict == "moving":
+            return "✅ Runs (picture moving; playability not checked)"
+        return RESULT_LABELS.get(r.status, r.status)
 
     def _write_report(self, r):
         store = f"https://store.steampowered.com/app/{r.steam_app}" if r.steam_app else "(not a Steam game)"
@@ -45,7 +58,7 @@ class RunWriter:
         lines = [
             f"**Title:** [Test] {r.name}", "",
             "### Game", "", f"{r.name} — {store}", "",
-            "### Result", "", RESULT_LABELS.get(r.status, r.status), "",
+            "### Result", "", self._label(r), "",
             "### Versions", "",
             "| Field | Value |", "| --- | --- |",
             f"| tested | {r.started_at} |",
@@ -59,6 +72,12 @@ class RunWriter:
         ]
         lines += [f"- {p}" for p in r.problems] or ["- No fatal lines found."]
         lines += ["", f"Wine `err:` channels: {errors}", ""]
+        if r.screen:
+            lines += ["### Screen", "",
+                      f"Before closing: **{r.screen['verdict']}** (brightness {r.screen['brightness']}/255, "
+                      f"motion {r.screen['motion']} per pixel over {r.screen['frames']} frames).", ""]
+        if r.screenshot:
+            lines += [f"![{r.name}]({r.screenshot})", ""]
         if r.log_tail:
             lines += [f"From `logs/title-{r.title}.log` ({r.session}), near the end:", "", "```", r.log_tail, "```", ""]
         (self.folder / f"{r.title}.md").write_text("\n".join(lines), encoding="utf-8")

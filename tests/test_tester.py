@@ -147,3 +147,46 @@ class RunnerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ScreenCheckTest(unittest.TestCase):
+    def test_verdicts(self):
+        from playden_tester.capture import check_frames
+        black = [bytes([2]) * 100] * 3
+        still = [bytes([90]) * 100] * 3
+        moving = [bytes([90]) * 100, bytes([120]) * 100, bytes([60]) * 100]
+        self.assertEqual(check_frames(black).verdict, "black")
+        self.assertEqual(check_frames(still).verdict, "still")
+        self.assertEqual(check_frames(moving).verdict, "moving")
+        self.assertAlmostEqual(check_frames(moving).motion, 45.0)
+
+
+class FakeCapture:
+    def __init__(self, frames):
+        self.frames = frames
+        self.shots = []
+
+    def check(self, seconds):
+        from playden_tester.capture import check_frames
+        return check_frames(self.frames)
+
+    def snapshot(self, path):
+        from pathlib import Path
+        self.shots.append(path)
+        return Path(path)
+
+
+class RunnerScreenTest(unittest.TestCase):
+    def test_black_screen_fails_a_survivor(self):
+        clock = FakeClock()
+        new = digest((1, 2000, 2064, ["fine"]), (0, 1000, 1010, ["old"]))
+        fake = FakeConsole(clock, stops_at=None, log_after=new)
+        camera = FakeCapture([bytes([1]) * 100] * 4)
+        settings = Settings(start_timeout=20, watch=60, close_timeout=30, log_timeout=10, poll=2, auto_close=True)
+        result = Runner(fake, settings, say=lambda _: None, clock=clock, sleep=clock.sleep,
+                        capture=camera, shots="shots").run(RunnerTest.game)
+        self.assertEqual(result.status, SURVIVED)
+        self.assertEqual(result.screen["verdict"], "black")
+        self.assertFalse(result.passed)
+        self.assertEqual(result.screenshot, "FAKE78001.jpg")
+        self.assertEqual(camera.shots, ["shots/FAKE78001.jpg"])

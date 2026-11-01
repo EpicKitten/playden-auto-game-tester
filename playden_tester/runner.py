@@ -3,6 +3,7 @@ import time
 from dataclasses import dataclass, field
 
 from . import titlelog
+from .capture import CaptureError
 from .console import LaunchError
 
 LAUNCH_FAILED = "launch_failed"   # the helper could not start the title
@@ -21,6 +22,7 @@ class Settings:
     log_timeout: float = 30.0     # seconds to wait for Playden to write the session to the log
     poll: float = 2.0
     auto_close: bool = False      # close a game that survived through padd, instead of waiting for a person
+    screen_seconds: float = 4.0   # seconds of screen watched (with a capture card) before a surviving game is closed
 
 
 @dataclass
@@ -37,15 +39,20 @@ class Result:
     wine_errors: dict = field(default_factory=dict)
     log_tail: str = ""
     started_at: str = ""
+    screen: dict = field(default_factory=dict)  # verdict (black, still, moving), brightness, motion
+    screenshot: str = ""
 
     @property
     def passed(self):
-        return self.status == SURVIVED
+        return self.status == SURVIVED and self.screen.get("verdict") != "black"
 
 
 class Runner:
-    def __init__(self, console, settings=None, say=print, clock=time.monotonic, sleep=time.sleep):
+    def __init__(self, console, settings=None, say=print, clock=time.monotonic, sleep=time.sleep,
+                 capture=None, shots=None):
         self.console = console
+        self.capture = capture  # a capture.Capture, or None without a capture card
+        self.shots = shots      # folder for screenshots
         self.settings = settings or Settings()
         self.say = say
         self.clock = clock
@@ -84,6 +91,7 @@ class Runner:
         if quit_after is None:
             result.seconds_running = self.clock() - start
             result.status = SURVIVED
+            self._look(result)
             if s.auto_close:
                 self.say(f"[{game.title}] survived {s.watch:.0f} s, closing it")
                 try:
@@ -104,6 +112,20 @@ class Runner:
             result.status = CRASHED if result.problems else EXITED
             result.detail = "; ".join(filter(None, [f"quit after {result.seconds_running:.0f} s", result.detail]))
         return result
+
+    def _look(self, result):
+        """Screenshot and screen check of a running game, when there is a capture card."""
+        if not self.capture:
+            return
+        try:
+            check = self.capture.check(self.settings.screen_seconds)
+            result.screen = check.as_dict()
+            if self.shots:
+                result.screenshot = self.capture.snapshot(f"{self.shots}/{result.title}.jpg").name
+        except CaptureError as error:
+            self.say(f"[{result.title}] no screen check: {error}")
+            return
+        self.say(f"[{result.title}] screen: {check.verdict} (brightness {check.brightness:.0f}, motion {check.motion:.2f})")
 
     def _read_session(self, result, before):
         """Fill in the new session from the title log, once Playden has written it."""

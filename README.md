@@ -38,6 +38,23 @@ Each game ends up with one status:
 Without padd (below), close a game that survived on the PS5 yourself: on Home, Options on its tile, Close Game.
 Going Home alone leaves it running. The run then goes on to the next game.
 
+## Seeing the screen: capture card
+
+With an HDMI capture card on the PC and ffmpeg installed (`winget install Gyan.FFmpeg`), the tester looks at a game
+that survived before closing it: a screenshot goes into its report, and a few seconds of video say whether the
+picture is **black**, **still** (a menu, or frozen) or **moving**. A black screen fails the game.
+
+On the PS5, turn off Settings › System › HDMI › **Enable HDCP**, or the card gets no picture. A card that only takes
+1080p60 also needs Settings › Screen and Video › Video Output at 1080p, with 120 Hz, VRR and HDR off. Only one program
+can use the card: close the Camera app and OBS first.
+
+```sh
+playden-tester snapshot --list                     # capture device names
+set PS5_CAPTURE=USB Capture HDMI                   # PowerShell: $env:PS5_CAPTURE = "USB Capture HDMI"
+playden-tester snapshot home.png --check 3         # one frame, plus black/still/moving
+playden-tester run                                 # screen checks and screenshots are now part of each test
+```
+
 ## Direct control: padd
 
 [padd](https://github.com/leolobato/ps5-mcp) (MIT, from ps5-mcp by Playden's author) is a payload that adds a

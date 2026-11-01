@@ -8,6 +8,7 @@ from pathlib import Path
 
 from . import catalog, titlelog
 from .console import ELFLDR_PORT, LOGS, PLAYDEN, RELAUNCH_ELF, HOMEBREW, Console, LaunchError
+from .capture import Capture, CaptureError, list_devices
 from .filemanager import FileManager, FileManagerError
 from .padd import BUTTONS, PORT as PADD_PORT, PaddError
 from .report import RunWriter
@@ -63,6 +64,14 @@ def cmd_doctor(args):
                   f"user {info['user'] or info['user_id']}")
         except PaddError as error:
             print(f"  padd: {error}")
+    if args.capture:
+        try:
+            check = Capture(args.capture).check(2)
+            print(f"  capture {args.capture!r}: screen {check.verdict} (brightness {check.brightness:.0f})")
+        except CaptureError as error:
+            print(f"  capture: {error}")
+    else:
+        print("  capture: none (--capture or PS5_CAPTURE; 'snapshot --list' shows the devices)")
     print("Ready to test." if ok else "Not ready: fix the items above.")
     return 0 if ok else 1
 
@@ -129,7 +138,10 @@ def cmd_run(args):
     auto_close = console.has_padd()
     print("padd is running: games are closed for you." if auto_close else
           "padd is not running: close each game on the PS5 when asked (or start padd: 'padd start').")
-    runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout, auto_close=auto_close))
+    capture = Capture(args.capture) if args.capture else None
+    print(f"Screen checks through {args.capture!r}." if capture else "No capture card: no screen checks or screenshots.")
+    runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout, auto_close=auto_close),
+                    capture=capture, shots=folder)
     print(f"Testing {len(games)} games; results in {folder}")
     for number, game in enumerate(games, 1):
         print(f"--- {number}/{len(games)}")
@@ -211,10 +223,28 @@ def cmd_home(args):
     return 0
 
 
+def cmd_snapshot(args):
+    if args.list:
+        for name in list_devices():
+            print(name)
+        return 0
+    if not args.capture:
+        print("give --capture or set PS5_CAPTURE ('snapshot --list' shows the devices)", file=sys.stderr)
+        return 1
+    capture = Capture(args.capture)
+    path = capture.snapshot(args.file or time.strftime("snapshot-%Y%m%d-%H%M%S.png"))
+    print(path)
+    if args.check:
+        print(capture.check(args.check).as_dict())
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="playden-tester", description="Test Playden games on a jailbroken PS5 remotely.")
     parser.add_argument("--host", default=os.environ.get("PS5_HOST"), help="PS5 address (or set PS5_HOST)")
     parser.add_argument("--port", type=int, default=8888, help="ps5-web-file-manager port")
+    parser.add_argument("--capture", default=os.environ.get("PS5_CAPTURE"),
+                        help="capture card device, e.g. \"USB Capture HDMI\" (or set PS5_CAPTURE)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check the console is ready for testing").set_defaults(func=cmd_doctor)
     sub.add_parser("list", help="list the Playden games on the console").set_defaults(func=cmd_list)
@@ -250,12 +280,23 @@ def main(argv=None):
     p.set_defaults(func=cmd_stick)
     sub.add_parser("close", help="close the running game (padd)").set_defaults(func=cmd_close)
     sub.add_parser("home", help="suspend the running game and show Home (padd)").set_defaults(func=cmd_home)
+    p = sub.add_parser("snapshot", help="save a frame from the capture card")
+    p.add_argument("file", nargs="?", help="PNG or JPEG path (default snapshot-<time>.png)")
+    p.add_argument("--list", action="store_true", help="list capture devices")
+    p.add_argument("--check", type=float, metavar="SECONDS", help="also watch the screen: black, still or moving")
+    p.set_defaults(func=cmd_snapshot)
     args = parser.parse_args(argv)
+    if args.func is cmd_snapshot:
+        try:
+            return cmd_snapshot(args)
+        except CaptureError as error:
+            print(f"error: {error}", file=sys.stderr)
+            return 1
     if not args.host:
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)
-    except (FileManagerError, PaddError, ValueError) as error:
+    except (FileManagerError, PaddError, CaptureError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
