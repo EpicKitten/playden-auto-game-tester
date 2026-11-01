@@ -10,6 +10,7 @@ import socket
 import time
 
 from .filemanager import FileManagerError
+from .padd import PORT as PADD_PORT, Padd, PaddError
 
 PLAYDEN = "FAKE77031"
 HOMEBREW = "/data/homebrew"
@@ -19,6 +20,7 @@ RELAUNCH_ELF = f"{HOMEBREW}/{PLAYDEN}/self-update-relaunch.elf"
 REQUEST = "/data/playden/self-update/relaunch-title"
 RESULT = "/data/playden/self-update/relaunch.log"
 ELFLDR_PORT = 9021
+PADD_ELF = "/data/playden-tester/padd.elf"
 
 TITLE_ID = re.compile(r"^[A-Z]{4}\d{5}$")
 RC = re.compile(r"(sceLncUtilLaunchApp|sceSystemServiceLaunchApp) rc=0x([0-9a-f]{8})")
@@ -44,10 +46,45 @@ def launch_outcome(text):
 
 
 class Console:
-    def __init__(self, files, host, elfldr_port=ELFLDR_PORT):
+    def __init__(self, files, host, elfldr_port=ELFLDR_PORT, padd=None):
         self.files = files
         self.host = host
         self.elfldr_port = elfldr_port
+        self.padd = padd or Padd(host)
+
+    def has_padd(self):
+        return self.port_open(PADD_PORT)
+
+    def start_padd(self, elf, timeout=15.0):
+        """Upload padd.elf and start it. The console then asks who uses the new controller: see assign."""
+        if self.has_padd():
+            return False
+        if not self.port_open(self.elfldr_port):
+            raise LaunchError(f"elfldr is not running on port {self.elfldr_port}; load it on the PS5 first")
+        folder, _, name = PADD_ELF.rpartition("/")
+        parent, _, leaf = folder.rpartition("/")
+        self.files.mkdir(parent, leaf)
+        self.files.upload(elf, folder, name)
+        self.files.launch_elf(PADD_ELF)
+        deadline = time.monotonic() + timeout
+        while not self.has_padd():
+            if time.monotonic() > deadline:
+                raise LaunchError(f"padd did not start listening on port {PADD_PORT}")
+            time.sleep(0.5)
+        return True
+
+    def close(self, title=None, timeout=20.0):
+        """Close the running game through padd and wait until its sandbox is gone."""
+        try:
+            self.padd.close_app()
+        except PaddError as error:
+            raise LaunchError(str(error)) from None
+        if title:
+            deadline = time.monotonic() + timeout
+            while self.is_running(title):
+                if time.monotonic() > deadline:
+                    raise LaunchError(f"{title} still runs {timeout:.0f} s after it was closed")
+                time.sleep(1.0)
 
     def port_open(self, port, timeout=1.5):
         try:
@@ -84,6 +121,8 @@ class Console:
         """
         if not TITLE_ID.match(title):
             raise LaunchError(f"not a title ID: {title!r}")
+        if self.has_padd():
+            return self._launch_with_padd(title, timeout)
         if not self.port_open(self.elfldr_port):
             raise LaunchError(f"elfldr is not running on port {self.elfldr_port}; load it on the PS5 first")
         self.files.write_text(REQUEST, title + "\n")
@@ -111,6 +150,18 @@ class Console:
                 return
             time.sleep(1.0)
         raise LaunchError(f"launch failed: {text.strip()}")
+
+    def _launch_with_padd(self, title, timeout):
+        """padd launches with the virtual pad's user, so the game takes input from the virtual pad."""
+        try:
+            self.padd.launch(title)
+        except PaddError as error:
+            raise LaunchError(str(error)) from None
+        deadline = time.monotonic() + timeout
+        while not self.is_running(title):
+            if time.monotonic() > deadline:
+                raise LaunchError(f"padd launched {title}, but no sandbox appeared within {timeout:.0f} s")
+            time.sleep(1.0)
 
     def _result_text(self):
         try:

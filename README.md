@@ -35,8 +35,46 @@ Each game ends up with one status:
 | `launch_failed` | The launch helper could not start it |
 | `not_closed` | Survived, but was not closed in time, so the run stopped |
 
-There is no remote way to close a game yet. After a game survives, close it on the PS5 (PS button, then close the
-game) and the run goes on to the next one.
+Without padd (below), close a game that survived on the PS5 yourself: on Home, Options on its tile, Close Game.
+Going Home alone leaves it running. The run then goes on to the next game.
+
+## Direct control: padd
+
+[padd](https://github.com/leolobato/ps5-mcp) (MIT, from ps5-mcp by Playden's author) is a payload that adds a
+virtual DualSense to the console and takes commands on TCP 9305: buttons and sticks, launch a title, close the
+running game, go Home. With padd running, the tester launches games through it and closes each one after the watch
+time, so a run needs nobody at the console.
+
+Build it once, on WSL or Linux (pinned ps5-mcp commit and PS5 Payload SDK v0.43, checked by SHA-256):
+
+```sh
+wsl -d Ubuntu -- sudo apt install -y clang-18 lld-18 unzip
+wsl -d Ubuntu -- bash scripts/build-padd.sh      # writes build/padd/padd.elf
+```
+
+Then, after each console boot:
+
+```sh
+playden-tester padd start     # uploads build/padd/padd.elf to /data/playden-tester/ and runs it through elfldr
+# the PS5 shows "Who's using this controller?"; with that dialog on screen:
+playden-tester padd assign    # Cross from the virtual pad picks the focused user
+playden-tester padd status
+```
+
+Assigning the virtual pad turns the DualSense off: press its PS button and pick your user to use both. A game
+takes input only from the controller that launched it, so games the tester launches through padd answer the
+virtual pad only. Stop padd with `playden-tester padd stop`; killing it another way can leave a phantom controller
+until the console restarts.
+
+```sh
+playden-tester press cross                 # buttons: cross circle square triangle up down left right l1 r1 l2 r2 l3 r3 options touchpad
+playden-tester press down --repeat 3
+playden-tester stick left 0 -1 --seconds 1 # x y from -1 to 1, up and left negative
+playden-tester close                       # close the running game
+playden-tester home                        # suspend it and show Home
+```
+
+The PS button itself can't be sent from a virtual pad; `home` and `close` cover what it is used for.
 
 ## Use
 

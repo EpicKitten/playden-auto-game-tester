@@ -20,6 +20,7 @@ class Settings:
     close_timeout: float = 600.0  # seconds to wait for the game to be closed after the watch
     log_timeout: float = 30.0     # seconds to wait for Playden to write the session to the log
     poll: float = 2.0
+    auto_close: bool = False      # close a game that survived through padd, instead of waiting for a person
 
 
 @dataclass
@@ -83,8 +84,15 @@ class Runner:
         if quit_after is None:
             result.seconds_running = self.clock() - start
             result.status = SURVIVED
-            self.say(f"[{game.title}] survived {s.watch:.0f} s. Close it on the PS5 (Home: Options on its tile, Close Game) "
-                     f"(waiting up to {s.close_timeout:.0f} s)")
+            if s.auto_close:
+                self.say(f"[{game.title}] survived {s.watch:.0f} s, closing it")
+                try:
+                    self.console.close(game.title)
+                except LaunchError as error:
+                    self.say(f"[{game.title}] could not close it: {error}")
+            else:
+                self.say(f"[{game.title}] survived {s.watch:.0f} s. Close it on the PS5 (Home: Options on its tile, "
+                         f"Close Game) (waiting up to {s.close_timeout:.0f} s)")
             if self._wait(lambda: not self.console.is_running(game.title), s.close_timeout) is None:
                 result.status, result.detail = STUCK, "still running; the run stopped here"
                 return result

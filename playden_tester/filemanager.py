@@ -129,6 +129,44 @@ class FileManager:
                 time.sleep(0.25)
         raise FileManagerError(f"download of {path} never became ready")
 
+    def mkdir(self, folder, name):
+        if not self.exists(folder, name):
+            self._json("POST", "/api/mkdir", {"path": folder, "name": name})
+
+    def upload(self, data, folder, name, timeout=60.0):
+        """Write bytes to folder/name, replacing it (prepare, stream the bytes, finish)."""
+        task = self._json("POST", "/api/upload/prepare", form={
+            "path": folder, "src": name, "total": len(data), "count": 1, "rels": name, "sizes": len(data),
+            "overwrite": "1"})["task_id"]
+        headers = {"Content-Type": "application/octet-stream", "X-WFM-Task-ID": str(task),
+                   "X-WFM-Path": urllib.parse.quote(folder, safe=""), "X-WFM-Rel": urllib.parse.quote(name, safe=""),
+                   "X-WFM-Size": str(len(data)), "X-WFM-Overwrite": "1"}
+        try:
+            self._request("POST", "/api/upload-file", body=data, headers=headers)
+        except FileManagerError:
+            for step, key in (("/api/cancel", "id"), ("/api/upload/finish", "task_id")):  # free the one task slot
+                try:
+                    self._request("POST", step, {key: task})
+                except FileManagerError:
+                    pass
+            raise
+        self._request("POST", "/api/upload/finish", {"task_id": task})
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            tasks = self._json("GET", "/api/tasks")
+            mine = [t for t in tasks.get("tasks", []) if t.get("id") == task]
+            if not mine:
+                done = tasks.get("completion") or {}
+                if done.get("id") == task and done.get("state") not in (None, "done"):
+                    raise FileManagerError(f"upload of {name} {done.get('state')}: {done.get('error', '')}")
+                return
+            if mine[0].get("state") == "done":
+                return
+            if mine[0].get("state") in ("failed", "canceled"):
+                raise FileManagerError(f"upload of {name} {mine[0]['state']}: {mine[0].get('error', '')}")
+            time.sleep(0.5)
+        raise FileManagerError(f"upload of {name} did not finish")
+
     def launch_elf(self, path):
         """Send an ELF that is already on the console to elfldr (port 9021)."""
         self._json("POST", "/api/launch-elf", form={"path": path})

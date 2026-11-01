@@ -1,4 +1,4 @@
-"""Command line: playden-tester doctor | list | launch | logs | run."""
+"""Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home."""
 import argparse
 import os
 import re
@@ -9,10 +9,14 @@ from pathlib import Path
 from . import catalog, titlelog
 from .console import ELFLDR_PORT, LOGS, PLAYDEN, RELAUNCH_ELF, HOMEBREW, Console, LaunchError
 from .filemanager import FileManager, FileManagerError
+from .padd import BUTTONS, PORT as PADD_PORT, PaddError
 from .report import RunWriter
 from .runner import Runner, Settings, STUCK
 
+PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
+
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
+         PADD_PORT: "padd virtual controller (optional: input, unattended close)",
          2120: "zftpd FTP (optional)", 7031: "Playden web access, 0.9.0+ (optional)"}
 
 
@@ -52,6 +56,13 @@ def cmd_doctor(args):
     ok &= has_helper
     print(f"  launch helper {RELAUNCH_ELF}: {'found' if has_helper else 'MISSING'}")
     print(f"  running now: {', '.join(sorted(console.running_titles())) or 'nothing'}")
+    if console.has_padd():
+        try:
+            info = console.padd.hello()
+            print(f"  padd {info['version']}: pad {'ready' if info['pad_ready'] else 'NOT ready'}, "
+                  f"user {info['user'] or info['user_id']}")
+        except PaddError as error:
+            print(f"  padd: {error}")
     print("Ready to test." if ok else "Not ready: fix the items above.")
     return 0 if ok else 1
 
@@ -115,7 +126,10 @@ def cmd_run(args):
             return 1
     folder = Path(args.out) / time.strftime("run-%Y%m%d-%H%M%S")
     writer = RunWriter(folder, {"host": args.host, "watch_seconds": args.watch, **console_facts(files)})
-    runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout))
+    auto_close = console.has_padd()
+    print("padd is running: games are closed for you." if auto_close else
+          "padd is not running: close each game on the PS5 when asked (or start padd: 'padd start').")
+    runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout, auto_close=auto_close))
     print(f"Testing {len(games)} games; results in {folder}")
     for number, game in enumerate(games, 1):
         print(f"--- {number}/{len(games)}")
@@ -127,6 +141,73 @@ def cmd_run(args):
             return 2
     passed = sum(r.passed for r in writer.results)
     print(f"Done: {passed}/{len(writer.results)} survived {args.watch:.0f} s. See {folder / 'summary.csv'}")
+    return 0
+
+
+def cmd_padd(args):
+    files, console = connect(args)
+    if args.action == "start":
+        elf = Path(args.elf) if args.elf else PADD_BUILD
+        if not elf.is_file():
+            print(f"{elf} not found. Build it first: wsl -d Ubuntu -- bash scripts/build-padd.sh", file=sys.stderr)
+            return 1
+        try:
+            started = console.start_padd(elf.read_bytes())
+        except LaunchError as error:
+            print(error, file=sys.stderr)
+            return 1
+        if not started:
+            print("padd is already running.")
+            return 0
+        print("padd started. The PS5 now asks \"Who's using this controller?\". Once you see that dialog,\n"
+              "run 'padd assign' to answer it with the virtual pad (this turns your DualSense off; press its PS\n"
+              "button and pick your user to bring it back).")
+        return 0
+    if not console.has_padd():
+        print(f"padd is not running on port {PADD_PORT}.", file=sys.stderr)
+        return 1
+    if args.action == "status":
+        info = console.padd.hello()
+        print(f"padd {info['version']}, pad {'ready' if info['pad_ready'] else 'not ready'}, "
+              f"user {info['user'] or info['user_id']}")
+    elif args.action == "assign":
+        console.padd.press("cross")
+        print("Pressed Cross on the virtual pad.")
+    elif args.action == "stop":
+        console.padd.shutdown()
+        print("padd stopped and its controller removed.")
+    return 0
+
+
+def cmd_press(args):
+    _, console = connect(args)
+    for _ in range(args.repeat):
+        console.padd.press(*args.buttons, seconds=args.hold)
+        time.sleep(args.gap)
+    return 0
+
+
+def cmd_stick(args):
+    _, console = connect(args)
+    console.padd.stick(args.side, args.x, args.y, args.seconds)
+    return 0
+
+
+def cmd_close(args):
+    _, console = connect(args)
+    running = [t for t in console.running_titles() if t.startswith("FAKE") or t.startswith("PPSA")]
+    try:
+        console.close(running[0] if len(running) == 1 else None)
+    except LaunchError as error:
+        print(error, file=sys.stderr)
+        return 1
+    print("Closed the running game.")
+    return 0
+
+
+def cmd_home(args):
+    _, console = connect(args)
+    console.padd.home()
     return 0
 
 
@@ -151,12 +232,30 @@ def main(argv=None):
     p.add_argument("--close-timeout", type=float, default=600.0, help="seconds to wait for you to close a game")
     p.add_argument("--out", default="results", help="folder for the run results")
     p.set_defaults(func=cmd_run)
+    p = sub.add_parser("padd", help="the virtual controller payload: start, status, assign, stop")
+    p.add_argument("action", choices=["start", "status", "assign", "stop"])
+    p.add_argument("--elf", help=f"padd.elf to upload (default {PADD_BUILD})")
+    p.set_defaults(func=cmd_padd)
+    p = sub.add_parser("press", help=f"press buttons on the virtual pad: {', '.join(BUTTONS)}")
+    p.add_argument("buttons", nargs="+")
+    p.add_argument("--hold", type=float, default=0.12, help="seconds to hold")
+    p.add_argument("--repeat", type=int, default=1)
+    p.add_argument("--gap", type=float, default=0.25, help="seconds between repeats")
+    p.set_defaults(func=cmd_press)
+    p = sub.add_parser("stick", help="move a stick: x and y from -1 to 1 (up and left negative)")
+    p.add_argument("side", choices=["left", "right"])
+    p.add_argument("x", type=float)
+    p.add_argument("y", type=float)
+    p.add_argument("--seconds", type=float, default=0.5)
+    p.set_defaults(func=cmd_stick)
+    sub.add_parser("close", help="close the running game (padd)").set_defaults(func=cmd_close)
+    sub.add_parser("home", help="suspend the running game and show Home (padd)").set_defaults(func=cmd_home)
     args = parser.parse_args(argv)
     if not args.host:
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)
-    except FileManagerError as error:
+    except (FileManagerError, PaddError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:

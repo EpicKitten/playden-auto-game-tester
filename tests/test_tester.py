@@ -87,6 +87,10 @@ class FakeConsole:
         t = self.clock() - self.launched_at
         return t >= self.starts_at and (self.stops_at is None or t < self.stops_at)
 
+    def close(self, title):
+        self.closed_at = self.clock() - self.launched_at
+        self.stops_at = self.closed_at
+
     def title_log(self, title):
         if self.launched_at is not None and not self.is_running(title) and self.log_after:
             return self.log_after
@@ -96,11 +100,18 @@ class FakeConsole:
 class RunnerTest(unittest.TestCase):
     game = Game("FAKE78001", "Half-Life 2", 220)
 
-    def run_game(self, **console):
+    def run_game(self, auto_close=False, **console):
         clock = FakeClock()
-        fake = FakeConsole(clock, **console)
-        settings = Settings(start_timeout=20, watch=60, close_timeout=30, log_timeout=10, poll=2)
-        return Runner(fake, settings, say=lambda _: None, clock=clock, sleep=clock.sleep).run(self.game)
+        self.fake = FakeConsole(clock, **console)
+        settings = Settings(start_timeout=20, watch=60, close_timeout=30, log_timeout=10, poll=2, auto_close=auto_close)
+        return Runner(self.fake, settings, say=lambda _: None, clock=clock, sleep=clock.sleep).run(self.game)
+
+    def test_survived_and_closed_through_padd(self):
+        new = digest((1, 2000, 2064, ["fine"]), (0, 1000, 1010, ["old"]))
+        result = self.run_game(auto_close=True, stops_at=None, log_after=new)
+        self.assertEqual(result.status, SURVIVED)
+        self.assertGreaterEqual(self.fake.closed_at, 60)
+        self.assertEqual(result.session, "session-1.log")
 
     def test_survived_then_closed(self):
         new = digest((1, 2000, 2100, ["fine"]), (0, 1000, 1010, ["old"]))
