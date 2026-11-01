@@ -150,7 +150,11 @@ def cmd_run(args):
         print(f"[{game.title}] {result.status} {result.detail}".rstrip())
         if result.status == STUCK:
             print("Stopping: the game was not closed.", file=sys.stderr)
+            writer.rewrite(runner.fill_pending())
             return 2
+    writer.rewrite(runner.fill_pending())
+    for result, _ in runner.pending:
+        print(f"[{result.title}] its session never reached the log")
     passed = sum(r.passed for r in writer.results)
     print(f"Done: {passed}/{len(writer.results)} survived {args.watch:.0f} s. See {folder / 'summary.csv'}")
     return 0

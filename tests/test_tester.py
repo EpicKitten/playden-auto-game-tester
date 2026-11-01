@@ -190,3 +190,44 @@ class RunnerScreenTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.screenshot, "FAKE78001.jpg")
         self.assertEqual(camera.shots, ["shots/FAKE78001.jpg"])
+
+
+class LateLogConsole(FakeConsole):
+    """Playden only writes the title log when it starts, as on the console."""
+
+    def __init__(self, clock, **kw):
+        super().__init__(clock, **kw)
+        self.playden_started = False
+        self.closed = []
+
+    def launch(self, title):
+        if title == "FAKE77031":
+            self.playden_started = True
+        else:
+            super().launch(title)
+
+    def close(self, title):
+        if title == "FAKE77031":
+            self.closed.append(title)
+        else:
+            super().close(title)
+
+    def title_log(self, title):
+        return self.log_after if self.playden_started else self.log_before
+
+
+class FillPendingTest(unittest.TestCase):
+    def test_sessions_come_from_playden_start(self):
+        clock = FakeClock()
+        new = digest((1, 2000, 2004, ["Crash!!!"]), (0, 1000, 1010, ["old"]))
+        fake = LateLogConsole(clock, stops_at=10, log_after=new)
+        settings = Settings(start_timeout=20, watch=60, close_timeout=30, log_timeout=4, poll=2, auto_close=True)
+        runner = Runner(fake, settings, say=lambda _: None, clock=clock, sleep=clock.sleep)
+        result = runner.run(RunnerTest.game)
+        self.assertEqual(result.status, EXITED)
+        self.assertIn("no new session", result.detail)
+        self.assertEqual(runner.fill_pending(), [result])
+        self.assertEqual(result.status, CRASHED)
+        self.assertEqual(result.detail, "quit after 6 s")
+        self.assertEqual(fake.closed, ["FAKE77031"])
+        self.assertEqual(runner.pending, [])

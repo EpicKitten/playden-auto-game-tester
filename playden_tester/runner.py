@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from . import titlelog
 from .capture import CaptureError
-from .console import LaunchError
+from .console import PLAYDEN, LaunchError
 
 LAUNCH_FAILED = "launch_failed"   # the helper could not start the title
 NO_START = "did_not_start"        # started, but no sandbox ever appeared
@@ -19,7 +19,8 @@ class Settings:
     start_timeout: float = 45.0   # seconds for the sandbox to appear
     watch: float = 120.0          # seconds a game must keep running to count as survived
     close_timeout: float = 600.0  # seconds to wait for the game to be closed after the watch
-    log_timeout: float = 30.0     # seconds to wait for Playden to write the session to the log
+    log_timeout: float = 5.0      # seconds to wait for the session in the log right after a game ends
+    refresh_timeout: float = 90.0 # seconds to wait for Playden, started afterwards, to write the sessions
     poll: float = 2.0
     auto_close: bool = False      # close a game that survived through padd, instead of waiting for a person
     screen_seconds: float = 4.0   # seconds of screen watched (with a capture card) before a surviving game is closed
@@ -41,6 +42,7 @@ class Result:
     started_at: str = ""
     screen: dict = field(default_factory=dict)  # verdict (black, still, moving), brightness, motion
     screenshot: str = ""
+    notes: list = field(default_factory=list)  # what detail is made of
 
     @property
     def passed(self):
@@ -53,6 +55,7 @@ class Runner:
         self.console = console
         self.capture = capture  # a capture.Capture, or None without a capture card
         self.shots = shots      # folder for screenshots
+        self.pending = []       # (result, session start times before its launch) whose session is not in its log yet
         self.settings = settings or Settings()
         self.say = say
         self.clock = clock
@@ -77,12 +80,17 @@ class Runner:
         try:
             self.console.launch(game.title)
         except LaunchError as error:
-            result.status, result.detail = LAUNCH_FAILED, str(error)
+            result.status = LAUNCH_FAILED
+            result.notes.append(str(error))
+            self._settle(result)
             return result
 
         if self._wait(lambda: self.console.is_running(game.title), s.start_timeout) is None:
-            result.status, result.detail = NO_START, f"no sandbox after {s.start_timeout:.0f} s"
-            self._read_session(result, before)
+            result.status = NO_START
+            result.notes.append(f"no sandbox after {s.start_timeout:.0f} s")
+            if not self._read_session(result, before, s.log_timeout):
+                self.pending.append((result, before))
+            self._settle(result)
             return result
 
         self.say(f"[{game.title}] running, watching for {s.watch:.0f} s")
@@ -102,16 +110,54 @@ class Runner:
                 self.say(f"[{game.title}] survived {s.watch:.0f} s. Close it on the PS5 (Home: Options on its tile, "
                          f"Close Game) (waiting up to {s.close_timeout:.0f} s)")
             if self._wait(lambda: not self.console.is_running(game.title), s.close_timeout) is None:
-                result.status, result.detail = STUCK, "still running; the run stopped here"
+                result.status = STUCK
+                result.notes.append("still running; the run stopped here")
+                self._settle(result)
                 return result
         else:
             result.seconds_running = quit_after
 
-        self._read_session(result, before)
         if result.status != SURVIVED:
-            result.status = CRASHED if result.problems else EXITED
-            result.detail = "; ".join(filter(None, [f"quit after {result.seconds_running:.0f} s", result.detail]))
+            result.status = EXITED
+            result.notes.append(f"quit after {result.seconds_running:.0f} s")
+        if not self._read_session(result, before, self.settings.log_timeout):
+            self.pending.append((result, before))
+        self._settle(result)
         return result
+
+    def fill_pending(self):
+        """Read the sessions the logs did not have yet. Playden writes every game's title log when it starts,
+        so start it, wait for the logs, and close it again when padd can. The results that changed."""
+        if not self.pending:
+            return []
+        self.say(f"Starting Playden to bring {len(self.pending)} game log(s) up to date")
+        try:
+            self.console.launch(PLAYDEN)
+        except LaunchError as error:
+            self.say(f"Could not start Playden: {error}")
+            return []
+        filled, deadline = [], self.clock() + self.settings.refresh_timeout
+        for result, before in self.pending:
+            if self._read_session(result, before, max(0.0, deadline - self.clock())):
+                filled.append(result)
+        self.pending = [(r, b) for r, b in self.pending if r not in filled]
+        for result in filled:
+            self._settle(result)
+        if self.settings.auto_close:
+            try:
+                self.console.close(PLAYDEN)
+            except LaunchError as error:
+                self.say(f"Could not close Playden: {error}")
+        return filled
+
+    def _settle(self, result):
+        """The status and detail from what is known now."""
+        if result.status in (EXITED, CRASHED):
+            result.status = CRASHED if result.problems else EXITED
+        notes = list(result.notes)
+        if any(r is result for r, _ in self.pending):
+            notes.append("no new session in the title log")
+        result.detail = "; ".join(notes)
 
     def _look(self, result):
         """Screenshot and screen check of a running game, when there is a capture card."""
@@ -127,8 +173,8 @@ class Runner:
             return
         self.say(f"[{result.title}] screen: {check.verdict} (brightness {check.brightness:.0f}, motion {check.motion:.2f})")
 
-    def _read_session(self, result, before):
-        """Fill in the new session from the title log, once Playden has written it."""
+    def _read_session(self, result, before, timeout):
+        """Fill in the new session from the title log, once Playden has written it. False if it has not."""
         found = []
 
         def written():
@@ -136,12 +182,12 @@ class Runner:
             found[:] = sessions
             return bool(sessions)
 
-        if self._wait(written, self.settings.log_timeout) is None:
-            result.detail = (result.detail + "; " if result.detail else "") + "no new session in the title log"
-            return
+        if self._wait(written, timeout) is None:
+            return False
         session = found[0]
         result.session = session.name
         result.session_seconds = session.duration
         result.problems = [f"{label}: {line}" for label, line in session.problems]
         result.wine_errors = session.wine_errors
         result.log_tail = session.tail()
+        return True

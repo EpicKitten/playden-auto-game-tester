@@ -28,6 +28,12 @@ class RunWriter:
         self._write_report(result)
         self.save()
 
+    def rewrite(self, results):
+        """Write the reports of results that changed after they were added."""
+        for result in results:
+            self._write_report(result)
+        self.save()
+
     def save(self):
         data = {"meta": self.meta, "results": [asdict(r) for r in self.results]}
         (self.folder / "results.json").write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
