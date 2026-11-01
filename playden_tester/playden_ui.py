@@ -24,6 +24,23 @@ def similar(a, b):
     return difflib.SequenceMatcher(None, normalize(a), normalize(b)).ratio()
 
 
+def same_name(a, b):
+    """The same game name, allowing only OCR slips (a letter read wrong, one dropped or added in the middle).
+    A name that is the start of the other is a different game: "Half-Life" is not "Half-Life 2"."""
+    x, y = normalize(a), normalize(b)
+    if x == y:
+        return True
+    if not x or not y or x.startswith(y) or y.startswith(x):
+        return False
+    return abs(len(x) - len(y)) <= 1 and difflib.SequenceMatcher(None, x, y).ratio() >= 0.9
+
+
+def dialog_names(lines, name):
+    """Does the uninstall dialog ("<name>. Frees about 67 MB. ...") name this game and no longer one?"""
+    text = normalize(" ".join(l.text for l in lines))
+    return normalize(name) + "frees" in text
+
+
 def search_text(name, limit=24):
     """What to type for a game: its words with only letters, digits and spaces (the keys the ABC page has)."""
     words, text = [], ""
@@ -151,7 +168,7 @@ class PlaydenUI:
         if game.description and text and similar(text[:160], game.description[:160]) > 0.6:
             return True
         title = " ".join(l.text for l in lines if 380 < l.y < 640)
-        return similar(title, game.title) > 0.8
+        return same_name(title, game.title)
 
     def open_game(self, game, max_results=12):
         """From anywhere in Playden to the game's details page (Install or Play button focused)."""
@@ -235,7 +252,7 @@ class PlaydenUI:
         for _ in range(60):
             lines, box, _ = self.read(0.5, RIGHT_PANEL)
             focused = Screen.inside(lines, box)
-            if focused and similar(focused[0].text, name) > 0.85:
+            if focused and same_name(focused[0].text, name):
                 row = focused[0].text
                 break
             if focused and normalize(focused[0].text).startswith("uninstallselected"):
@@ -248,9 +265,10 @@ class PlaydenUI:
         self.expect("selected", settle=0.3)  # "1 selected" reads as "I selected"
         self.press("triangle", gap=1.2)
         lines = self.expect("Uninstall 1 game", settle=0.3)
-        if not any(similar(l.text[:len(name) + 2], name) > 0.75 or normalize(name) in normalize(l.text) for l in lines):
+        if not dialog_names(lines, name):
             self.press("circle")
-            raise UIError(f"the uninstall dialog does not name {name}")
+            raise UIError(f"the uninstall dialog does not name {name}: "
+                          f"{' '.join(l.text for l in lines if 380 < l.y < 500)[:120]!r}")
         self.press("right", times=2, gap=0.4)
         lines, box, _ = self.read(0.6, (480, 600, 1440, 740))
         if [normalize(l.text) for l in Screen.inside(lines, box)] != ["uninstall"]:

@@ -314,3 +314,29 @@ class StorageTest(unittest.TestCase):
             again = RunWriter(folder, {}, resume=True)
             self.assertEqual([r.name for r in again.results], ["Brotato"])
             self.assertEqual(RunWriter(folder, {}).results, [])
+
+
+class NameMatchTest(unittest.TestCase):
+    def test_a_name_that_starts_another_is_a_different_game(self):
+        from playden_tester.playden_ui import same_name
+        self.assertFalse(same_name("Half-Life 2", "Half-Life"))
+        self.assertFalse(same_name("Half-Life", "Half-Life 2"))
+        self.assertFalse(same_name("Portal 2", "Portal"))
+        self.assertFalse(same_name("Call of Duty: Ghosts", "Call of Duty: Black Ops II"))
+
+    def test_ocr_slips_still_match(self):
+        from playden_tester.playden_ui import same_name
+        self.assertTrue(same_name("Hollow Knight", "Hollow Knight"))
+        self.assertTrue(same_name("Mirror's Edge", "Mirrors Edge"))
+        self.assertTrue(same_name("Ouit Playden", "Quit Playden"))
+        self.assertTrue(same_name("METAL GEAR SOLID 3: Snake Eater - Master Collection Version",
+                                  "METAL GEAR SOLID 3: Snake Eater - Master Collection Version"))
+
+    def test_the_dialog_must_name_exactly_this_game(self):
+        from playden_tester.playden_ui import dialog_names
+        from playden_tester.screen import Line
+        def dialog(text):
+            return [Line("Uninstall 1 game?", 528, 300, 300, 40), Line(text, 528, 390, 800, 25)]
+        self.assertTrue(dialog_names(dialog("Balatro. Frees about 67 MB. Their files and PS5 titles are"), "Balatro"))
+        self.assertFalse(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life"))
+        self.assertTrue(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life 2"))
