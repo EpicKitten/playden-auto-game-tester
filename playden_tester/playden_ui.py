@@ -47,6 +47,16 @@ def dialog_names(lines, name):
 TYPEABLE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ")
 
 
+NOT_DESCRIPTION = ("installs to", "saves from", "read more", "select", "cloud saves")
+
+
+def description_text(lines):
+    """The description on a game's page: the text under the buttons, left of the facts column. It sits lower
+    on a page that offers Install (y 860) than on one that offers Play (y 775)."""
+    return " ".join(l.text for l in lines if 740 < l.y < 970 and l.x < 1250
+                    and not l.text.lower().startswith(NOT_DESCRIPTION) and "read more" not in l.text.lower())
+
+
 def search_text(name, limit=28):
     """What to type for a game. Playden keeps a game when the search is part of its title as written (case
     folded), so this is the start of the title, up to the first character the ABC page has no key for."""
@@ -185,7 +195,7 @@ class PlaydenUI:
 
     def details_match(self, lines, game):
         """Is this details page the game? Its description against the library cache's, or the title text."""
-        text = " ".join(l.text for l in lines if l.y > 840 and l.x < 1250)
+        text = description_text(lines)
         if game.description and text and similar(text[:160], game.description[:160]) > 0.6:
             return True
         title = " ".join(l.text for l in lines if 380 < l.y < 640)

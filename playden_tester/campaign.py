@@ -13,7 +13,7 @@ from . import catalog
 from .console import HOMEBREW, PLAYDEN, LaunchError
 from .filemanager import FileManagerError
 from .logs import LogCollector
-from .playden_ui import UIError
+from .playden_ui import UIError, same_name
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, STUCK, Runner
 
@@ -51,10 +51,12 @@ class Campaign:
     def titles(self):
         return {e["name"] for e in self.files.list(HOMEBREW) if e["type"] == "d" and e["name"].startswith("FAKE")}
 
-    def installed_title(self, app):
-        for game in catalog.games(self.files):
-            if game.steam_app == app:
-                return game.title
+    def installed_title(self, game):
+        """The game's PS5 title, by the name in its param.json. Not by title logs: Playden reuses the IDs of
+        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log."""
+        for title in catalog.games(self.files, read_logs=False):
+            if same_name(title.name, game.title):
+                return title.title
         return None
 
     def playden_front(self):
@@ -149,24 +151,15 @@ class Campaign:
             self.ui.press("circle")
             if "play" not in focused:
                 continue
-            if new:
-                return sorted(new)[-1]
-            title = self.unclaimed_title()
+            title = self.installed_title(game)
             if title:
                 return title
-            raise UIError(f"{game.title}: playable, but its PS5 title could not be told apart")
+            raise UIError(f"{game.title}: playable, but no PS5 title has its name")
         raise UIError(f"{game.title}: not ready {int(max(1800, (gb or 30) * 300))} s after Install")
-
-    def unclaimed_title(self):
-        """The newest Playden game title no other game uses (by its title log or this campaign's records)."""
-        claimed = {g.title for g in catalog.games(self.files) if g.steam_app}
-        claimed |= {e.get("ps5_title") for e in self.state.values()}
-        free = sorted(t for t in self.titles() if t.startswith("FAKE78") and t not in claimed)
-        return free[-1] if free else None
 
     def run_one(self, game):
         """Test one game; its Result, or None when it was skipped."""
-        title = self.installed_title(game.app)
+        title = self.installed_title(game)
         downloaded = False
         if not title:
             try:

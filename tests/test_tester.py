@@ -366,3 +366,18 @@ class SearchTest(unittest.TestCase):
         self.assertEqual(ui.result_count([Line("1 games · Some", 96, 704, 300, 20)]), 1)
         self.assertEqual(ui.result_count([Line("O games · Some game details", 96, 704, 300, 20)]), 0)
         self.assertIsNone(ui.result_count([Line("Some game details are unavailable.", 96, 704, 300, 20)]))
+
+
+class DescriptionTest(unittest.TestCase):
+    def test_description_on_install_and_play_pages(self):
+        from playden_tester.playden_ui import description_text
+        from playden_tester.screen import Line
+        play = [Line("Play", 140, 672, 60, 20), Line("Cloud saves Synced", 400, 673, 200, 20),
+                Line("Reawakened from stasis in the occupied metropolis of City 17, Gordon Freeman", 97, 775, 900, 25),
+                Line("L 2/ R2 Read more page 1 of 2", 97, 879, 300, 20), Line("PLAYTIME", 1304, 696, 80, 12)]
+        install = [Line("Install 286 MB", 136, 672, 160, 20),
+                   Line("Installs to Console storage - 220.3 GB free", 97, 762, 400, 21),
+                   Line("Return to the Black Mesa Research Facility as one of the military", 97, 817, 900, 25)]
+        self.assertTrue(description_text(play).startswith("Reawakened from stasis"))
+        self.assertNotIn("Read more", description_text(play))
+        self.assertTrue(description_text(install).startswith("Return to the Black Mesa"))
