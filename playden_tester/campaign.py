@@ -109,6 +109,10 @@ class Campaign:
                 game.description = store_details(game.app).get("short_description", "")
             except OSError:
                 pass
+        if any(e["name"] == str(game.app) for e in self.files.list("/data/playden-games")):
+            # Installed by an earlier run that stopped while it downloaded: only wait for it.
+            self.say(f"[{game.app}] {game.title}: already downloading; waiting until it can be played")
+            return self.wait_ready(game, before, None)
         self.playden_front()
         lines = self.ui.open_game(game, self.library)
         button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
@@ -126,21 +130,39 @@ class Campaign:
         self.say(f"[{game.app}] {game.title}: installing ({button.strip()}; "
                  f"{'?' if free is None else f'{free:.1f}'} GB free)")
         self.ui.install(game, self.files)
+        return self.wait_ready(game, before, gb)
+
+    def wait_ready(self, game, before, gb):
+        """Wait until the game's new PS5 title exists and its page offers Play; the title ID."""
         # A download of g GB at no less than about 4 MB/s, plus preparation.
-        deadline = time.monotonic() + max(1800, (gb or 10) * 300)
+        deadline = time.monotonic() + max(1800, (gb or 30) * 300)
+        resumed = gb is None
         while time.monotonic() < deadline:
             time.sleep(30)
             new = self.titles() - before
-            if not new:
+            if not new and not resumed:
                 continue
-            # The title exists; Playden is ready when the game's page offers Play.
+            # Playden is ready when the game's page offers Play.
             self.playden_front()
             lines = self.ui.open_game(game, self.library)
             focused = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 500).lower()
             self.ui.press("circle")
-            if "play" in focused:
-                return sorted(new)[0]
-        raise UIError(f"{game.title}: not ready {self.ready_timeout} s after Install")
+            if "play" not in focused:
+                continue
+            if new:
+                return sorted(new)[-1]
+            title = self.unclaimed_title()
+            if title:
+                return title
+            raise UIError(f"{game.title}: playable, but its PS5 title could not be told apart")
+        raise UIError(f"{game.title}: not ready {int(max(1800, (gb or 30) * 300))} s after Install")
+
+    def unclaimed_title(self):
+        """The newest Playden game title no other game uses (by its title log or this campaign's records)."""
+        claimed = {g.title for g in catalog.games(self.files) if g.steam_app}
+        claimed |= {e.get("ps5_title") for e in self.state.values()}
+        free = sorted(t for t in self.titles() if t.startswith("FAKE78") and t not in claimed)
+        return free[-1] if free else None
 
     def run_one(self, game):
         """Test one game; its Result, or None when it was skipped."""
