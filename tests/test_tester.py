@@ -345,7 +345,7 @@ class NameMatchTest(unittest.TestCase):
 class SearchTest(unittest.TestCase):
     def test_typed_text_is_the_start_of_the_title_as_written(self):
         from playden_tester.playden_ui import search_text
-        self.assertEqual(search_text("Half-Life 2"), "HALF-LIFE 2")
+        self.assertEqual(search_text("Half-Life 2"), "HALF")
         self.assertEqual(search_text("METAL GEAR SOLID 3: Snake Eater"), "METAL GEAR SOLID 3")
         self.assertEqual(search_text("Mirror's Edge"), "MIRROR")
 
@@ -355,7 +355,7 @@ class SearchTest(unittest.TestCase):
         library = [OwnedGame(620, "Portal 2"), OwnedGame(400, "Portal"), OwnedGame(220, "Half-Life 2"),
                    OwnedGame(360, "Half-Life 2: Deathmatch"), OwnedGame(70, "Half-Life"),
                    OwnedGame(684410, "Bridge Constructor Portal")]
-        self.assertEqual([g.app for g in predict_results(library, search_text("Half-Life 2"))], [220, 360])
+        self.assertEqual([g.app for g in predict_results(library, search_text("Half-Life 2"))], [70, 220, 360])
         self.assertEqual([g.app for g in predict_results(library, "PORTAL")], [684410, 400, 620])
 
     def test_result_count_is_read_or_none(self):
@@ -364,4 +364,5 @@ class SearchTest(unittest.TestCase):
         ui = PlaydenUI(None, None)
         self.assertEqual(ui.result_count([Line("2 games · Some game details", 96, 704, 300, 20)]), 2)
         self.assertEqual(ui.result_count([Line("1 games · Some", 96, 704, 300, 20)]), 1)
+        self.assertEqual(ui.result_count([Line("O games · Some game details", 96, 704, 300, 20)]), 0)
         self.assertIsNone(ui.result_count([Line("Some game details are unavailable.", 96, 704, 300, 20)]))

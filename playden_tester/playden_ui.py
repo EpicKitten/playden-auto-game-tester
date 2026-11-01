@@ -41,7 +41,10 @@ def dialog_names(lines, name):
     return normalize(name) + "frees" in text
 
 
-TYPEABLE = set("".join(KEYBOARD)) | {" "}
+# Letters, digits and space only: the key shown as "-" typed a comma ("Half,life 2"), and the typed-text check
+# cannot tell punctuation apart, so the search stops before the first other character and the result
+# prediction finds the game among the matches.
+TYPEABLE = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ")
 
 
 def search_text(name, limit=28):
@@ -183,8 +186,10 @@ class PlaydenUI:
         """The "N games" count under the Library's side menu, or None when it cannot be read."""
         for line in lines:
             words = line.text.split()
-            if line.x < 420 and len(words) >= 2 and words[0].isdigit() and words[1].startswith("game"):
-                return int(words[0])
+            if line.x < 420 and len(words) >= 2 and words[1].startswith("game"):
+                number = words[0].replace("O", "0").replace("o", "0")  # "0 games" reads as "O games"
+                if number.isdigit():
+                    return int(number)
         return None
 
     def open_game(self, game, library=None, max_results=24):
