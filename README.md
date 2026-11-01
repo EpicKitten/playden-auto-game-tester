@@ -117,6 +117,33 @@ playden-tester run --only FAKE78009 FAKE78019 --watch 180
 A run writes `results/run-<time>/`: `results.json`, `summary.csv`, and `<title>.md` for each game, in the shape of
 Playden's [test report](https://github.com/leolobato/playden-ps5/blob/main/docs/sample-test-report.md).
 
+## Campaigns: download, test, collect logs, uninstall
+
+With padd and a capture card, the tester can drive Playden's own screens: it reads them with Windows' built-in OCR
+and checks each step before it presses anything that changes something.
+
+```sh
+playden-tester library --controller full          # your Steam games with full controller support (asks the Steam store)
+playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
+```
+
+For each game, `campaign`:
+
+1. downloads it through Playden if it is not installed (Library > All > Search; the game is confirmed by its page),
+   and waits until its page offers Play;
+2. tests it: launch, watch, screen check, screenshot, close;
+3. starts Playden, which writes the game's session to its title log;
+4. writes a redacted logs zip, the way Playden's `tools/collect_logs.py` does (Steam account names and SteamIDs
+   replaced; `/data/playden/user` is never read except the library cache), and a draft for Playden's test-report
+   issue form in `results/campaign/issues/`. Nothing is posted;
+5. uninstalls it through Settings > Storage > Installed games, keeping its saves (`--keep` skips this).
+
+Progress is in `results/campaign/campaign.json`: run the same command again to go on. A campaign stops after three
+games in a row go wrong, or two failed launches.
+
+`library` reads only Playden's library cache (`library-<SteamID>.cache`), never `session.v1` beside it, which holds
+the Steam sign-in. The lists and the store cache go to `data/`, which is not committed.
+
 ## Tests
 
 ```sh

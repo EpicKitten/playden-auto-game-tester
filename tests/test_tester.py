@@ -231,3 +231,41 @@ class FillPendingTest(unittest.TestCase):
         self.assertEqual(result.detail, "quit after 6 s")
         self.assertEqual(fake.closed, ["FAKE77031"])
         self.assertEqual(runner.pending, [])
+
+
+class ReportTest(unittest.TestCase):
+    def test_report_and_issue_draft(self):
+        import tempfile
+        from pathlib import Path
+        from playden_tester.report import RunWriter
+        from playden_tester.runner import Result
+        with tempfile.TemporaryDirectory() as folder:
+            writer = RunWriter(folder, {"playden_version": "0.8.0", "firmware": "12.20"})
+            works = Result("FAKE78022", "Hollow Knight", 367520, status=SURVIVED, seconds_running=60,
+                           screen={"verdict": "still", "brightness": 37.0, "motion": 0.41, "frames": 16},
+                           screenshot="FAKE78022.jpg", log_tail="REC alive")
+            spinner = Result("FAKE78012", "Balatro", 2379780, status=SURVIVED, seconds_running=60,
+                             screen={"verdict": "black", "brightness": 0.0, "motion": 0.2, "frames": 16})
+            for result in (works, spinner):
+                writer.add(result)
+            text = writer.write_issue(works, "| Field | Value |", "FAKE78022-logs.zip").read_text(encoding="utf-8")
+            self.assertIn("✅ Works", text)
+            self.assertIn("367520", text)
+            self.assertIn("❌ Does not start", writer.write_issue(spinner, "|", "x.zip").read_text(encoding="utf-8"))
+            self.assertIsNone(writer.write_issue(Result("FAKE1", "X", status=LAUNCH_FAILED), "|", "x.zip"))
+            self.assertTrue((Path(folder) / "summary.csv").exists())
+
+
+class AliveTest(unittest.TestCase):
+    def test_black_screen_with_frames_is_broken_not_stuck(self):
+        import tempfile
+        from playden_tester.report import RunWriter, alive_stats
+        from playden_tester.runner import Result
+        tail = "REC seq=423 t=1 PW_WINE64 alive tick=5340 frames_put=1 shown=0 vk_shown=1029 audio=16279 audible=15874"
+        self.assertEqual(alive_stats(tail)["vk_shown"], 1029)
+        with tempfile.TemporaryDirectory() as folder:
+            writer = RunWriter(folder, {})
+            r = Result("FAKE78030", "Balatro", 2379780, status=SURVIVED, seconds_running=90, log_tail=tail,
+                       screen={"verdict": "black", "brightness": 0.3, "motion": 0.2, "frames": 16})
+            writer.add(r)
+            self.assertIn("❌ Broken: starts", writer.write_issue(r, "|", "x.zip").read_text(encoding="utf-8"))

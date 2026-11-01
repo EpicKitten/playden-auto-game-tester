@@ -1,0 +1,268 @@
+"""Drive Playden's own screens with padd (virtual DualSense) and check every step on the capture card (screen.py).
+
+Playden has no remote API for downloads or uninstalls, and doing them behind its back would leave its records
+wrong, so the tester uses its UI the way a player would. Every step reads the screen before pressing anything that
+changes something: a wrong focus backs out instead of pressing on.
+"""
+import difflib
+import time
+
+from .screen import Screen, normalize
+
+# The PS5 system keyboard Playden's search opens (ABC page). The focus starts on G.
+KEYBOARD = ["1234567890@", "QWERTYUIOP#", 'ASDFGHJKL"/', "ZXCVBNM-_?!"]
+KEYBOARD_START = (2, 4)
+RIGHT_PANEL = (960, 0, 1920, 1080)
+TABS = ["home", "library", "queue", "saves", "settings"]
+
+
+class UIError(Exception):
+    pass
+
+
+def similar(a, b):
+    return difflib.SequenceMatcher(None, normalize(a), normalize(b)).ratio()
+
+
+def search_text(name, limit=24):
+    """What to type for a game: its words with only letters, digits and spaces (the keys the ABC page has)."""
+    words, text = [], ""
+    for word in name.upper().replace("&", " ").split():
+        word = "".join(c for c in word if c.isascii() and c.isalnum())
+        if not word:
+            continue
+        if len(text) + len(word) + (1 if text else 0) > limit:
+            break
+        text = f"{text} {word}" if text else word
+    return text
+
+
+def key_moves(text, start=KEYBOARD_START):
+    """D-pad presses (and triangle for space) that type text on the ABC page, from start."""
+    where = {c: (r, k) for r, row in enumerate(KEYBOARD) for k, c in enumerate(row)}
+    moves, (row, col) = [], start
+    for c in text.upper():
+        if c == " ":
+            moves.append("triangle")
+            continue
+        if c not in where:
+            raise UIError(f"cannot type {c!r}")
+        r, k = where[c]
+        moves += ["down" if r > row else "up"] * abs(r - row) + ["right" if k > col else "left"] * abs(k - col)
+        moves.append("cross")
+        row, col = r, k
+    return moves
+
+
+class PlaydenUI:
+    def __init__(self, padd, screen, say=print):
+        self.pad = padd
+        self.screen = screen
+        self.say = say
+
+    def press(self, *names, times=1, gap=0.35):
+        for _ in range(times):
+            self.pad.press(*names)
+            time.sleep(gap)
+
+    def read(self, settle=0.8, region=None):
+        return self.screen.read(settle, region)
+
+    def expect(self, *texts, settle=0.8, tries=3):
+        """The screen lines once all texts are on screen; UIError when they never are."""
+        lines = []
+        for _ in range(tries):
+            lines, _, _ = self.read(settle)
+            if Screen.has(lines, *texts):
+                return lines
+        raise UIError(f"expected {texts} on screen; saw {[l.text for l in lines][:12]}")
+
+    def active_tab(self):
+        """The selected tab's name (home, library, queue, saves, settings): the one inside the grey outline."""
+        from PIL import Image
+        from .screen import ocr
+        path = self.screen.grab(0.8)
+        pixels = Image.open(path).convert("RGB").load()
+        edge = [x for x in range(80, 1100) if all(70 <= c <= 110 for c in pixels[x, 57])]
+        if not edge:
+            return None
+        x0, x1 = min(edge), max(edge)
+        for line in ocr(path):
+            if line.y < 120 and x0 <= line.center[0] <= x1:
+                for name in TABS:
+                    if name in normalize(line.text) or (name == "queue" and "ueue" in normalize(line.text)):
+                        return name
+        return None
+
+    def tab(self, name):
+        """Select a tab by name. R1 goes right and wraps from Settings to Home."""
+        if isinstance(name, int):
+            name = TABS[name]
+        for _ in range(len(TABS) + 1):
+            if self.active_tab() == name:
+                return
+            self.press("r1", gap=0.6)
+        raise UIError(f"could not select the {name} tab")
+
+    def type_search(self, text):
+        """Type into the open system keyboard and check the field before Done (R2)."""
+        for move in key_moves(text):
+            self.pad.press(move)
+            time.sleep(0.12)
+        lines, _, _ = self.read(0.6)
+        # The field line only (the suggestions row below it repeats the word); the caret can read as an extra "l".
+        typed = " ".join(l.text for l in lines if 315 < l.y < 375 and 530 < l.x < 1400)
+        if similar(typed, text) < 0.8:
+            raise UIError(f"typed {typed!r} instead of {text!r}")
+        self.pad.press("r2")
+
+    # --- Library: find a game and open its page ---------------------------------------------------------------
+
+    def home_visible(self, lines):
+        return Screen.has(lines, "Library", "Saves", "Settings")  # "Queue" often reads as "Oueue"
+
+    def side_focus(self):
+        lines, box, _ = self.read(0.7, (80, 130, 420, 600))
+        return [l.text for l in Screen.inside(lines, box)]
+
+    def library_all(self):
+        """Library tab, scope All, no search."""
+        self.tab(1)
+        lines = self.expect("Library", "All", settle=1.0)
+        if Screen.has(lines, "Clear search"):
+            self.press("circle")
+        for _ in range(3):
+            if self.side_focus():
+                break
+            self.press("left", gap=0.6)
+        else:
+            raise UIError("could not reach the Library side menu")
+        for _ in range(8):
+            focused = self.side_focus()
+            if focused and normalize(focused[0]) == "all":
+                self.press("cross", gap=0.8)
+                return
+            self.press("up" if focused and normalize(focused[0]) in ("favorites", "hidden", "newcollection") else "down")
+        raise UIError("could not select All in the Library")
+
+    def details_match(self, lines, game):
+        """Is this details page the game? Its description against the library cache's, or the title text."""
+        text = " ".join(l.text for l in lines if l.y > 840 and l.x < 1250)
+        if game.description and text and similar(text[:160], game.description[:160]) > 0.6:
+            return True
+        title = " ".join(l.text for l in lines if 380 < l.y < 640)
+        return similar(title, game.title) > 0.8
+
+    def open_game(self, game, max_results=12):
+        """From anywhere in Playden to the game's details page (Install or Play button focused)."""
+        self.library_all()
+        self.press("right", gap=0.6)  # back into the grid, so touchpad opens search
+        self.press("touchpad", gap=1.0)
+        self.expect("Search", "Done", settle=0.8)
+        self.type_search(search_text(game.title))
+        lines = self.expect("games", settle=1.5)
+        counts = [l.text for l in lines if l.x < 420 and "games" in l.text]
+        count = int(counts[0].split()[0]) if counts and counts[0].split()[0].isdigit() else max_results
+        if count == 0:
+            raise UIError(f"{game.title}: not found in the library")
+        typed = search_text(game.title)
+        whole_name = normalize(typed) == normalize(game.title)
+        for index in range(min(count, max_results)):
+            self.press("cross", gap=1.8)
+            lines, _, _ = self.read(0.5)
+            # One result for the game's whole name is the game, even when its page shows a logo and no text.
+            if self.details_match(lines, game) or (count == 1 and whole_name):
+                return lines
+            self.press("circle", gap=1.0)
+            self.press("right" if (index + 1) % 6 else "down")
+            if (index + 1) % 6 == 0:
+                self.press("left", times=5, gap=0.25)
+        raise UIError(f"{game.title}: none of the {count} search results is this game")
+
+    # --- Install and uninstall ----------------------------------------------------------------------------------
+
+    def install(self, game, files, timeout=120):
+        """Press Install on the game's details page; True once Playden has started on it (its download folder)."""
+        lines, box, _ = self.read(0.6, (60, 620, 1240, 740))
+        focused = " ".join(l.text for l in Screen.inside(lines, box))
+        if "install" not in focused.lower():
+            if "play" in focused.lower():
+                return False  # already installed
+            raise UIError(f"{game.title}: the focused button is {focused!r}, not Install")
+        self.press("cross", gap=1.5)
+        lines, _, _ = self.read(0.5)
+        if Screen.has(lines, "Cancel") and not Screen.has(lines, "Delete saves"):
+            raise UIError(f"{game.title}: Install opened a dialog: {[l.text for l in lines][:10]}")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if any(e["name"] == str(game.app) for e in files.list("/data/playden-games")):
+                return True
+            time.sleep(3)
+        raise UIError(f"{game.title}: no download folder {game.app} within {timeout} s of Install")
+
+    def uninstall(self, name, files, app, title=None, timeout=180):
+        """Settings > Storage > Installed games: tick the game by name and uninstall it, keeping its saves.
+        Checks the dialog names the game and the button is Uninstall, then that its files are gone."""
+        self.tab(4)
+        self.expect("Storage", "Downloads", "Updates", settle=1.0)
+        for _ in range(3):
+            if self.side_focus():
+                break
+            self.press("left", gap=0.6)
+        for _ in range(9):
+            focused = self.side_focus()
+            if focused and normalize(focused[0]) == "storage":
+                break
+            order = ["account", "library", "storage", "downloads", "display", "updates", "about", "quitplayden"]
+            here = order.index(normalize(focused[0])) if focused and normalize(focused[0]) in order else 9
+            if normalize(focused[0] if focused else "") == "quitplayden" or here > 2:
+                self.press("up")
+            else:
+                self.press("down")
+        else:
+            raise UIError("could not reach Storage")
+        self.press("right", gap=0.6)
+        for _ in range(6):
+            lines, box, _ = self.read(0.6, (430, 190, 1840, 960))
+            if any("installedgames" in normalize(l.text) for l in Screen.inside(lines, box)):
+                break
+            self.press("down")
+        else:
+            raise UIError("could not focus Installed games")
+        self.press("cross", gap=1.5)
+        self.expect("Select games to uninstall", settle=0.5)
+        row = None
+        for _ in range(60):
+            lines, box, _ = self.read(0.5, RIGHT_PANEL)
+            focused = Screen.inside(lines, box)
+            if focused and similar(focused[0].text, name) > 0.85:
+                row = focused[0].text
+                break
+            if focused and normalize(focused[0].text).startswith("uninstallselected"):
+                break
+            self.press("down", gap=0.2)
+        if not row:
+            self.press("circle")
+            raise UIError(f"{name} is not in Installed games")
+        self.press("cross", gap=0.8)
+        self.expect("selected", settle=0.3)  # "1 selected" reads as "I selected"
+        self.press("triangle", gap=1.2)
+        lines = self.expect("Uninstall 1 game", settle=0.3)
+        if not any(similar(l.text[:len(name) + 2], name) > 0.75 or normalize(name) in normalize(l.text) for l in lines):
+            self.press("circle")
+            raise UIError(f"the uninstall dialog does not name {name}")
+        self.press("right", times=2, gap=0.4)
+        lines, box, _ = self.read(0.6, (480, 600, 1440, 740))
+        if [normalize(l.text) for l in Screen.inside(lines, box)] != ["uninstall"]:
+            self.press("circle")
+            raise UIError("the focus is not on the dialog's Uninstall button")
+        self.press("cross")
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            time.sleep(3)
+            games = {e["name"] for e in files.list("/data/playden-games")}
+            titles = {e["name"] for e in files.list("/data/homebrew")}
+            if str(app) not in games and (not title or title not in titles):
+                self.press("circle")  # close the list
+                return
+        raise UIError(f"{name}: still on the console {timeout} s after Uninstall")
