@@ -75,30 +75,42 @@ class Console:
         except FileManagerError:
             return ""
 
-    def launch(self, title, timeout=20.0):
-        """Start a title. Raises LaunchError with the reason when it does not start."""
+    def launch(self, title, timeout=20.0, grace=15.0):
+        """Start a title. Raises LaunchError with the reason when it does not start.
+
+        A failed return code does not settle it: with Playden in front, both launch calls
+        answer 0x80940010 and the game starts anyway (Playden's own tests expect the same).
+        So a failure only counts once the title's sandbox has not appeared within `grace`.
+        """
         if not TITLE_ID.match(title):
             raise LaunchError(f"not a title ID: {title!r}")
         if not self.port_open(self.elfldr_port):
             raise LaunchError(f"elfldr is not running on port {self.elfldr_port}; load it on the PS5 first")
         self.files.write_text(REQUEST, title + "\n")
-        before = self._result_text()
+        self.files.write_text(RESULT, "")  # the helper rewrites it; an empty one means no answer yet
         try:
             self.files.launch_elf(RELAUNCH_ELF)
         except FileManagerError as error:
             raise LaunchError(f"could not send the launch helper: {error}") from None
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+        text, outcome = "", None
+        while outcome is None and time.monotonic() < deadline:
             time.sleep(1.0)
             text = self._result_text()
-            if text == before or f"title={title}" not in text:
-                continue
-            outcome = launch_outcome(text)
-            if outcome is True:
+            if f"title={title}" in text:
+                outcome = launch_outcome(text)
+            if self.is_running(title):
                 return
-            if outcome is False:
-                raise LaunchError(f"launch failed: {text.strip()}")
-        raise LaunchError(f"no answer from the launch helper after {timeout:.0f} s: {self._result_text().strip()}")
+        if outcome is True:
+            return
+        if outcome is None:
+            raise LaunchError(f"no answer from the launch helper after {timeout:.0f} s: {text.strip()}")
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            if self.is_running(title):
+                return
+            time.sleep(1.0)
+        raise LaunchError(f"launch failed: {text.strip()}")
 
     def _result_text(self):
         try:
