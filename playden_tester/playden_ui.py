@@ -167,7 +167,8 @@ class PlaydenUI:
         lines = self.expect("Library", "All", settle=1.0)
         if Screen.has(lines, "Clear search"):
             self.press("circle")
-        for _ in range(3):
+        # One Left per column from the focused tile, then one more into the side menu (6 columns).
+        for _ in range(8):
             if self.side_focus():
                 break
             self.press("left", gap=0.6)
