@@ -127,10 +127,16 @@ class Campaign:
         self.mark(game, status=result.status, screen=result.screen.get("verdict", ""), detail=result.detail,
                   issue=str(issue.relative_to(self.out)) if issue else "", logs=f"logs/{zip_name}")
         if not self.keep and result.status != LAUNCH_FAILED:
-            self.playden_front()
-            self.ui.uninstall(game.title, self.files, game.app, title)
-            self.mark(game, uninstalled=True)
-            self.say(f"[{game.app}] {game.title}: uninstalled (saves kept)")
+            # A failed uninstall leaves the test result as it is. Some games have a PS5 title and files but are
+            # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
+            try:
+                self.playden_front()
+                self.ui.uninstall(game.title, self.files, game.app, title)
+                self.mark(game, uninstalled=True)
+                self.say(f"[{game.app}] {game.title}: uninstalled (saves kept)")
+            except UIError as error:
+                self.mark(game, uninstalled=False, uninstall_error=str(error))
+                self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
         return result
 
     def run(self, games, limit=None):
