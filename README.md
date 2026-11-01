@@ -59,8 +59,12 @@ playden-tester run                                 # screen checks and screensho
 
 [padd](https://github.com/leolobato/ps5-mcp) (MIT, from ps5-mcp by Playden's author) is a payload that adds a
 virtual DualSense to the console and takes commands on TCP 9305: buttons and sticks, launch a title, close the
-running game, go Home. With padd running, the tester launches games through it and closes each one after the watch
-time, so a run needs nobody at the console.
+running game, go Home. With padd running, the tester closes each game after the watch time, so a run needs nobody
+at the console. Games are still launched through Playden's relaunch helper: padd's own launch call is refused for
+Playden's game titles (0x80940033, "Can't start the game or app", CE-105773-3).
+
+A run stops after two launches in a row fail. A console that got stuck refusing every title, Playden included, came
+back after a restart.
 
 Build it once, on WSL or Linux (pinned ps5-mcp commit and PS5 Payload SDK v0.43, checked by SHA-256):
 
@@ -78,9 +82,9 @@ playden-tester padd assign    # Cross from the virtual pad picks the focused use
 playden-tester padd status
 ```
 
-Assigning the virtual pad turns the DualSense off: press its PS button and pick your user to use both. A game
-takes input only from the controller that launched it, so games the tester launches through padd answer the
-virtual pad only. Stop padd with `playden-tester padd stop`; killing it another way can leave a phantom controller
+Assigning the virtual pad turns the DualSense off: press its PS button and pick your user to use both. The virtual
+pad works on system screens (it dismisses error dialogs); whether a game started by the relaunch helper takes its
+input is not tested yet. Stop padd with `playden-tester padd stop`; killing it another way can leave a phantom controller
 until the console restarts.
 
 ```sh

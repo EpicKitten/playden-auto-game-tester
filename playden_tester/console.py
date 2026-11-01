@@ -118,11 +118,13 @@ class Console:
         A failed return code does not settle it: with Playden in front, both launch calls
         answer 0x80940010 and the game starts anyway (Playden's own tests expect the same).
         So a failure only counts once the title's sandbox has not appeared within `grace`.
+
+        Always through the relaunch helper, even with padd running: padd's launch (sceLncUtilLaunchApp
+        without SkipLaunchCheck) answered 0x80940010/0x80940033 for Playden's game titles, with
+        "Can't start the game or app" (CE-105773-3) on screen.
         """
         if not TITLE_ID.match(title):
             raise LaunchError(f"not a title ID: {title!r}")
-        if self.has_padd():
-            return self._launch_with_padd(title, timeout)
         if not self.port_open(self.elfldr_port):
             raise LaunchError(f"elfldr is not running on port {self.elfldr_port}; load it on the PS5 first")
         self.files.write_text(REQUEST, title + "\n")
@@ -150,18 +152,6 @@ class Console:
                 return
             time.sleep(1.0)
         raise LaunchError(f"launch failed: {text.strip()}")
-
-    def _launch_with_padd(self, title, timeout):
-        """padd launches with the virtual pad's user, so the game takes input from the virtual pad."""
-        try:
-            self.padd.launch(title)
-        except PaddError as error:
-            raise LaunchError(str(error)) from None
-        deadline = time.monotonic() + timeout
-        while not self.is_running(title):
-            if time.monotonic() > deadline:
-                raise LaunchError(f"padd launched {title}, but no sandbox appeared within {timeout:.0f} s")
-            time.sleep(1.0)
 
     def _result_text(self):
         try:

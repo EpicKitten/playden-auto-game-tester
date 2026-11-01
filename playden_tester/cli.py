@@ -12,8 +12,9 @@ from .capture import Capture, CaptureError, list_devices
 from .filemanager import FileManager, FileManagerError
 from .padd import BUTTONS, PORT as PADD_PORT, PaddError
 from .report import RunWriter
-from .runner import Runner, Settings, STUCK
+from .runner import LAUNCH_FAILED, Runner, Settings, STUCK
 
+MAX_FAILED_LAUNCHES = 2
 PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
@@ -143,6 +144,7 @@ def cmd_run(args):
     runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout, auto_close=auto_close),
                     capture=capture, shots=folder)
     print(f"Testing {len(games)} games; results in {folder}")
+    failed_launches = 0
     for number, game in enumerate(games, 1):
         print(f"--- {number}/{len(games)}")
         result = runner.run(game)
@@ -152,6 +154,13 @@ def cmd_run(args):
             print("Stopping: the game was not closed.", file=sys.stderr)
             writer.rewrite(runner.fill_pending())
             return 2
+        failed_launches = failed_launches + 1 if result.status == LAUNCH_FAILED else 0
+        if failed_launches >= MAX_FAILED_LAUNCHES:
+            # A console that refuses one launch after another is stuck (it showed "Can't start the game or app"
+            # for every title, Playden included, until it was restarted); more launches only add error dialogs.
+            print(f"Stopping: {failed_launches} launches in a row failed. Check the PS5 (a restart may be needed).",
+                  file=sys.stderr)
+            return 3
     writer.rewrite(runner.fill_pending())
     for result, _ in runner.pending:
         print(f"[{result.title}] its session never reached the log")
