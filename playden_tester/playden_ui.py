@@ -93,6 +93,23 @@ def key_moves(text, start=KEYBOARD_START):
     return moves
 
 
+SIDE_MENUS = [["Installed", "All", "Favorites", "Hidden", "New collection"],
+              ["Account", "Library", "Storage", "Downloads", "Display", "Updates", "About", "Quit Playden"]]
+SIDE_STEP = 66  # px between side-menu items
+
+
+def side_item(lines, y):
+    """The side-menu item at height y, from the items OCR did read and the menus' fixed order and spacing."""
+    for menu in SIDE_MENUS:
+        for index, label in enumerate(menu):
+            seen = [l for l in lines if l.x < 420 and same_name(l.text, label)]
+            if seen:
+                slot = index + round((y - seen[0].center[1]) / SIDE_STEP)
+                if 0 <= slot < len(menu):
+                    return menu[slot]
+    return None
+
+
 class PlaydenUI:
     def __init__(self, padd, screen, say=print):
         self.pad = padd
@@ -168,8 +185,14 @@ class PlaydenUI:
         return any(Screen.has(lines, *marker) for marker in markers)
 
     def side_focus(self):
-        lines, box, _ = self.read(0.7, (80, 130, 420, 600))
-        return [l.text for l in Screen.inside(lines, box)]
+        """The text of the focused side-menu item; [] when the focus is not in the side menu."""
+        lines, box, _ = self.read(0.7, (80, 130, 420, 700))
+        inside = [l.text for l in Screen.inside(lines, box)]
+        if inside or not box:
+            return inside
+        # OCR does not read some highlighted items ("All"); tell them by their place among the ones it reads.
+        guess = side_item(lines, (box[1] + box[3]) / 2)
+        return [guess] if guess else []
 
     def library_all(self):
         """Library tab, scope All, no search."""
