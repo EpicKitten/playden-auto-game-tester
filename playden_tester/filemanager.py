@@ -85,9 +85,16 @@ class FileManager:
     def write_text(self, path, text):
         """Write a text file, creating it first when it is missing."""
         folder, _, name = path.rpartition("/")
+        version = None
         if self.exists(folder or "/", name):
-            _, version = self.read_text(path)
-        else:
+            try:
+                _, version = self.read_text(path)
+            except FileManagerError as error:
+                # The text API only opens known text types; a file without an extension has to be replaced.
+                if error.code != "text_type_not_editable":
+                    raise
+                self.delete(path)
+        if not version:
             version = self._json("POST", "/api/text/create", {"path": folder or "/", "name": name}).get("version")
         query = {"path": path}
         if version:
@@ -97,6 +104,17 @@ class FileManager:
         data = json.loads(raw)
         if not data.get("ok", False):
             raise FileManagerError(data.get("error", "save failed"), code=data.get("error_code"))
+
+    def delete(self, path, timeout=10.0):
+        """Delete a file and wait until it is gone (the file manager deletes in a background task)."""
+        self._json("POST", "/api/delete", form={"paths": path})
+        folder, _, name = path.rpartition("/")
+        deadline = time.monotonic() + timeout
+        while self.exists(folder or "/", name):
+            if time.monotonic() > deadline:
+                raise FileManagerError(f"{path} was not deleted")
+            time.sleep(0.25)
+        time.sleep(0.25)  # let the task finish, or the next call answers "another task is running"
 
     def download(self, path, retries=20):
         """The whole content of a file, as bytes."""

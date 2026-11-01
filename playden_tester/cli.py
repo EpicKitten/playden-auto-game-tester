@@ -101,10 +101,18 @@ def cmd_run(args):
     if args.only:
         wanted = {t.upper() for t in args.only}
         games = [g for g in games if g.title in wanted]
-    busy = {t for t in console.running_titles() if t.startswith("FAKE78")}
-    if busy:
-        print(f"A game is already running ({', '.join(sorted(busy))}). Close it first.", file=sys.stderr)
-        return 1
+    def busy():
+        return sorted(t for t in console.running_titles() if t.startswith("FAKE78"))
+
+    if busy():
+        print(f"A game is already running ({', '.join(busy())}). Close it on the PS5 "
+              f"(Home: Options on its tile, Close Game); waiting up to {args.close_timeout:.0f} s")
+        deadline = time.monotonic() + args.close_timeout
+        while busy() and time.monotonic() < deadline:
+            time.sleep(2)
+        if busy():
+            print("It is still running; nothing tested.", file=sys.stderr)
+            return 1
     folder = Path(args.out) / time.strftime("run-%Y%m%d-%H%M%S")
     writer = RunWriter(folder, {"host": args.host, "watch_seconds": args.watch, **console_facts(files)})
     runner = Runner(console, Settings(watch=args.watch, close_timeout=args.close_timeout))

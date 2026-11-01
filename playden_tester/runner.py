@@ -83,7 +83,7 @@ class Runner:
         if quit_after is None:
             result.seconds_running = self.clock() - start
             result.status = SURVIVED
-            self.say(f"[{game.title}] survived {s.watch:.0f} s. Close the game on the PS5 to go on "
+            self.say(f"[{game.title}] survived {s.watch:.0f} s. Close it on the PS5 (Home: Options on its tile, Close Game) "
                      f"(waiting up to {s.close_timeout:.0f} s)")
             if self._wait(lambda: not self.console.is_running(game.title), s.close_timeout) is None:
                 result.status, result.detail = STUCK, "still running; the run stopped here"
