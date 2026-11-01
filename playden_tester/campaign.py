@@ -64,9 +64,10 @@ class Campaign:
             time.sleep(8)
         for _ in range(6):
             lines, _, _ = self.ui.read(1.0)
-            if self.ui.home_visible(lines):
+            # The tabs show through a sheet, a dialog or the keyboard, but do not take R1 while one is open.
+            if self.ui.home_visible(lines) and not self.ui.overlay_open(lines):
                 return
-            self.ui.press("circle", gap=1.0)  # close a sheet or dialog left open
+            self.ui.press("circle", gap=1.0)
         raise UIError("Playden's tabs are not on screen")
 
     def evictable(self):

@@ -150,6 +150,13 @@ class PlaydenUI:
     def home_visible(self, lines):
         return Screen.has(lines, "Library", "Saves", "Settings")  # "Queue" often reads as "Oueue"
 
+    @staticmethod
+    def overlay_open(lines):
+        """A sheet (Installed games), a dialog, the system keyboard or a game's page over the tabs."""
+        markers = [("Select games to uninstall",), ("Uninstall 1 game",), ("Search", "Done", "Backspace"),
+                   ("Delete saves too",), ("PLAYTIME", "LOCATION")]
+        return any(Screen.has(lines, *marker) for marker in markers)
+
     def side_focus(self):
         lines, box, _ = self.read(0.7, (80, 130, 420, 600))
         return [l.text for l in Screen.inside(lines, box)]
