@@ -459,3 +459,49 @@ class CompatibilityTest(unittest.TestCase):
                                            {"app": 70, "title": "Half-Life"}])
         self.assertEqual(sorted(found), [48000, 504230])
         self.assertEqual(found[48000][0]["state"], "❌ Broken")
+
+
+class StoreFeaturesTest(unittest.TestCase):
+    def test_page_flags(self):
+        from playden_tester.storefeatures import page_flags
+        html = ('<div>Uses Kernel Level Anti-Cheat</div><div class="anticheat_name">Easy Anti-Cheat'
+                '<span class="anticheat_uninstalls"> - Requires manual removal after game uninstall</span></div>')
+        self.assertEqual(page_flags(html), (["Easy Anti-Cheat"], False))
+        self.assertEqual(page_flags('"loc_token":"#SteamDeckVerified_TestResult_UnsupportedAntiCheat_Other"'),
+                         ([], True))
+        self.assertEqual(page_flags("<a>Minion Masters - Vanguard</a>"), ([], False))
+
+    def test_pads_and_multiplayer_anticheat(self):
+        from playden_tester.storefeatures import DUALSENSE, DUALSHOCK, NO_PAD, multiplayer_anticheat, pad_rank
+        self.assertEqual(pad_rank(["DualShock Controller Support", "DualSense Controller Support"]), DUALSENSE)
+        self.assertEqual(pad_rank(["DualShock Controller Support"]), DUALSHOCK)
+        self.assertEqual(pad_rank(None), NO_PAD)
+        games = [{"app": 1, "title": "Notice"}, {"app": 2, "title": "Deck"}, {"app": 3, "title": "VAC solo"},
+                 {"app": 4, "title": "Listed"}, {"app": 5, "title": "Clean"}]
+        cache = {"1": {"categories": ["Online PvP"], "notice": ["Easy Anti-Cheat"], "deck_anticheat": False},
+                 "2": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": True},
+                 "3": {"categories": ["Single-player", "Valve Anti-Cheat enabled"], "notice": [], "deck_anticheat": False},
+                 "4": {"categories": ["Single-player", "Co-op"], "notice": [], "deck_anticheat": False},
+                 "5": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": False}}
+        rows = {row["app"]: row for row in multiplayer_anticheat(games, cache, {4: ["BattlEye"]})}
+        self.assertEqual(sorted(rows), [1, 2, 4])  # 3 has no multiplayer
+        self.assertEqual(rows[1]["anticheats"], ["Easy Anti-Cheat"])
+        self.assertEqual(rows[4]["anticheats"], ["BattlEye"])
+        from playden_tester.storefeatures import anticheats
+        self.assertEqual(anticheats({"notice": ["VAC (Valve Anti-Cheat)"], "categories": ["Valve Anti-Cheat enabled"]},
+                                    ["Valve Anti-Cheat", "Easy Anti-Cheat"]), ["VAC", "Easy Anti-Cheat"])
+        self.assertTrue(rows[4]["single_player"])
+
+    def test_campaign_order_with_pads(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import load_list
+        from playden_tester.storefeatures import DUALSENSE, DUALSHOCK
+        rows = [{"app": 1, "title": "Neither"}, {"app": 2, "title": "DualShock"}, {"app": 3, "title": "DualSense"},
+                {"app": 4, "title": "On PS5, DualSense"}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "list.json"
+            path.write_text(json.dumps(rows), encoding="utf-8")
+            games = load_list(path, {4: 3}, {2: DUALSHOCK, 3: DUALSENSE, 4: DUALSENSE})
+        self.assertEqual([g.app for g in games], [3, 2, 1, 4])

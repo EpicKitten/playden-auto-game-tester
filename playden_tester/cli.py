@@ -1,5 +1,5 @@
 """Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home | library |
-campaign | reported | ports | snapshot."""
+campaign | reported | ports | features | snapshot."""
 import argparse
 import os
 import re
@@ -344,6 +344,40 @@ def cmd_ports(args):
     return 0
 
 
+def cmd_features(args):
+    """Store features of each game of a list (pads, multiplayer, anti-cheat) and the multiplayer games with
+    anti-cheat that campaigns skip."""
+    import json
+    from collections import Counter
+    from .storefeatures import (DUALSENSE, DUALSHOCK, StoreFeaturesError, fetch_areweanticheatyet, fill_features,
+                                multiplayer_anticheat, pad_rank)
+    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    out, anticheat = Path(args.out), Path(args.anticheat)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cache = json.loads(out.read_text(encoding="utf-8")) if out.exists() and not args.refresh else {}
+    print(f"{len(games)} games; {sum(str(g['app']) not in cache for g in games)} to look up on the Steam store")
+    try:
+        fill_features([g["app"] for g in games], cache)
+    finally:
+        out.write_text(json.dumps(cache, indent=1, ensure_ascii=False), encoding="utf-8")
+    try:
+        awacy = fetch_areweanticheatyet()
+    except StoreFeaturesError as error:
+        print(f"{error}; going on without it", file=sys.stderr)
+        awacy = {}
+    found = {row["app"]: row for row in multiplayer_anticheat(games, cache, awacy)}
+    # Keep games added to the list by hand (anti-cheat announced in news, say) unless they now have their own row.
+    kept = [row for row in (json.loads(anticheat.read_text(encoding="utf-8")) if anticheat.exists() else [])
+            if row["app"] not in found]
+    rows = sorted([*found.values(), *kept], key=lambda row: row["title"].lower())
+    anticheat.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    pads = Counter(pad_rank((cache.get(str(g["app"])) or {}).get("categories")) for g in games)
+    print(f"pads: {pads[DUALSENSE]} DualSense, {pads[DUALSHOCK]} DualShock only, "
+          f"{len(games) - pads[DUALSENSE] - pads[DUALSHOCK]} neither: {out}")
+    print(f"{len(found)} multiplayer games with anti-cheat ({len(kept)} more kept from the old list): {anticheat}")
+    return 0
+
+
 def cmd_campaign(args):
     from .campaign import Campaign, load_list
     from .playden_ui import PlaydenUI
@@ -363,7 +397,12 @@ def cmd_campaign(args):
         from .ports import load_ranks
         ranks = load_ranks(Path(args.ports))
         print(f"games with a console version go last ({args.ports})")
-    games = load_list(args.list, ranks)
+    pads = {}
+    if args.features and Path(args.features).exists():
+        from .storefeatures import load_pads
+        pads = load_pads(Path(args.features))
+        print(f"DualSense games first within each group ({args.features})")
+    games = load_list(args.list, ranks, pads)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
@@ -456,7 +495,18 @@ def main(argv=None):
                    help="test games with a console version last, PlayStation releases after the rest and PS4 and "
                         "PS5 ones at the very end, from this list "
                         "written by 'ports' (if it exists); '' keeps the list's order")
+    p.add_argument("--features", default="data/store-features.json", metavar="FILE",
+                   help="within each group, test DualSense games first, then DualShock ones, from this file written "
+                        "by 'features' (if it exists); '' keeps the order")
     p.set_defaults(func=cmd_campaign)
+    p = sub.add_parser("features", help="look up pads, multiplayer and anti-cheat of a list's games (Steam store, "
+                                        "AreWeAntiCheatYet)")
+    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--out", default="data/store-features.json", help="store features of each game (kept between runs)")
+    p.add_argument("--anticheat", default="data/multiplayer-anticheat.json",
+                   help="where to write the multiplayer games with anti-cheat (campaigns skip them)")
+    p.add_argument("--refresh", action="store_true", help="look every game up again")
+    p.set_defaults(func=cmd_features)
     p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")
     p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
     p.add_argument("--out", default="data/console-ports.json")
@@ -478,7 +528,7 @@ def main(argv=None):
         except CaptureError as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
-    if not args.host and args.func not in (cmd_reported, cmd_ports):  # these only read GitHub or Wikidata
+    if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features):  # these only read the web
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)
