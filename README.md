@@ -125,6 +125,7 @@ and checks each step before it presses anything that changes something.
 ```sh
 playden-tester library --controller full          # your Steam games with full controller support (asks the Steam store)
 playden-tester reported                           # games of that list others already reported on Playden's tracker
+playden-tester ports                              # which of them also came out on consoles (Wikidata)
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
 
@@ -135,7 +136,12 @@ the games with a test report (one that links the game's Steam or SteamDB page, o
 `campaign` also skips the games in `data/multiplayer-anticheat.json` if it is there: multiplayer games with
 anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the like, from [AreWeAntiCheatYet](https://areweanticheatyet.com) and
 Steam's "Valve Anti-Cheat enabled" category), which cannot be played online under Playden. `--skip FILE ...` names
-other lists, `--skip` alone skips none, and `--only` always tests the games it names. Unauthenticated, GitHub allows 60 requests an
+other lists, `--skip` alone skips none, and `--only` always tests the games it names.
+
+`ports` looks up each game's platforms on Wikidata (by its Steam app ID) and writes `data/console-ports.json`.
+`campaign` then tests the games with no console version first, games on other consoles next, and games that came
+out on PS4 or PS5, which play on the PS5 without Playden, last. Installed games still come first, and games missing
+from Wikidata count as having no console version. `--ports ''` keeps the list's order. Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
 
 For each game, `campaign`:
