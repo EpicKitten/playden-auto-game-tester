@@ -334,12 +334,14 @@ def free_space(lines):
     return None
 
 
-def load_list(path, ranks=None):
+def load_list(path, ranks=None, pads=None):
     """The games of a `library` list (JSON): OwnedGame-like objects. Installed games first (no download to wait for),
-    then by rank ({app: rank}, lower first; see ports.py), keeping the list's order otherwise."""
+    then by console rank ({app: rank}, lower first; see ports.py), then by pad rank ({app: rank}: DualSense games
+    first; see storefeatures.py), keeping the list's order otherwise."""
     from .library import OwnedGame
+    from .storefeatures import NO_PAD
     rows = json.loads(Path(path).read_text(encoding="utf-8"))
-    ranks = ranks or {}
-    rows.sort(key=lambda row: (not row.get("installed"), ranks.get(row["app"], 0)))
+    ranks, pads = ranks or {}, pads or {}
+    rows.sort(key=lambda row: (not row.get("installed"), ranks.get(row["app"], 0), pads.get(row["app"], NO_PAD)))
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]

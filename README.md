@@ -126,6 +126,7 @@ and checks each step before it presses anything that changes something.
 playden-tester library --controller full          # your Steam games with full controller support (asks the Steam store)
 playden-tester reported                           # games of that list others already reported on Playden's tracker
 playden-tester ports                              # which of them also came out on consoles (Wikidata)
+playden-tester features                           # pads, multiplayer and anti-cheat of each (Steam store)
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
 
@@ -134,16 +135,21 @@ playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/ga
 titled with its name) or a row in the compatibility list to
 `data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
 
-`campaign` also skips the games in `data/multiplayer-anticheat.json` if it is there: multiplayer games with
-anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the like, from [AreWeAntiCheatYet](https://areweanticheatyet.com) and
-Steam's "Valve Anti-Cheat enabled" category), which cannot be played online under Playden. `--skip FILE ...` names
+`campaign` also skips the games in `data/multiplayer-anticheat.json`: multiplayer games with anti-cheat (Easy
+Anti-Cheat, BattlEye, VAC and the like), which cannot be played online under Playden. `features` writes it: for each
+game it reads Steam's feature categories and store page, and counts a multiplayer game as having anti-cheat when its
+page shows Steam's anti-cheat notice, its Steam Deck or SteamOS result says "unsupported anti-cheat", it has the
+"Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. Rows added to the
+file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `--skip FILE ...` names
 other lists, `--skip` alone skips none, and `--only` always tests the games it names.
 
 `ports` looks up each game's platforms on Wikidata (by its Steam app ID) and writes `data/console-ports.json`.
 `campaign` then tests the games with no console version first, then games on other consoles only (Xbox, Nintendo),
 then games released on a PlayStation, with games that came out on PS4 or PS5, which play on the PS5 without Playden,
 last. Installed games still come first, and games missing
-from Wikidata count as having no console version. `--ports ''` keeps the list's order. Unauthenticated, GitHub allows 60 requests an
+from Wikidata count as having no console version. `--ports ''` keeps the list's order. Within each of those groups,
+games with Steam's "DualSense Controller Support" go first, then "DualShock Controller Support", from
+`data/store-features.json` (`--features ''` leaves that out). Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
 
 For each game, `campaign`:
