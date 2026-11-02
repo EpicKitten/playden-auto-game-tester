@@ -130,8 +130,12 @@ playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/ga
 
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and writes
 the games with a test report (one that links the game's Steam or SteamDB page, or is titled with its name) to
-`data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports; `--skip-reported ''`
-tests them anyway, and `--only` always tests the games it names. Unauthenticated, GitHub allows 60 requests an
+`data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
+
+`campaign` also skips the games in `data/multiplayer-anticheat.json` if it is there: multiplayer games with
+anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the like, from [AreWeAntiCheatYet](https://areweanticheatyet.com) and
+Steam's "Valve Anti-Cheat enabled" category), which cannot be played online under Playden. `--skip FILE ...` names
+other lists, `--skip` alone skips none, and `--only` always tests the games it names. Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
 
 For each game, `campaign`:

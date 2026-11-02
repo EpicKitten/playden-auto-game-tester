@@ -60,6 +60,6 @@ def reported_games(issues, games):
     return found
 
 
-def load_reported(path):
-    """The Steam apps in a list written by the 'reported' command."""
+def load_apps(path):
+    """The Steam apps in a list of games (JSON rows with an "app"), such as one 'reported' writes."""
     return {row["app"] for row in json.loads(path.read_text(encoding="utf-8"))}

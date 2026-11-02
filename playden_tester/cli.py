@@ -331,12 +331,13 @@ def cmd_campaign(args):
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
-    elif args.skip_reported and Path(args.skip_reported).exists():
-        from .reported import load_reported
-        reported = load_reported(Path(args.skip_reported))
-        print(f"skipping {sum(g.app in reported for g in games)} games others already reported on "
-              f"({args.skip_reported})")
-        games = [g for g in games if g.app not in reported]
+    else:
+        from .reported import load_apps
+        for skip in filter(None, args.skip):
+            if Path(skip).exists():
+                apps = load_apps(Path(skip))
+                print(f"skipping {sum(g.app in apps for g in games)} games listed in {skip}")
+                games = [g for g in games if g.app not in apps]
     capture = Capture(args.capture)
     ui = PlaydenUI(console.padd, Screen(capture))
     out = Path(args.out)
@@ -410,8 +411,11 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
-    p.add_argument("--skip-reported", default="data/tested-by-others.json", metavar="FILE",
-                   help="skip the games in this list written by 'reported' (if it exists); '' to test them too")
+    p.add_argument("--skip", nargs="*", metavar="FILE",
+                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "
+                        "the ones others already reported on and multiplayer games with anti-cheat; --skip alone "
+                        "skips none")
     p.set_defaults(func=cmd_campaign)
     p = sub.add_parser("reported", help="find the games of a list that already have a test report on Playden's tracker")
     p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
