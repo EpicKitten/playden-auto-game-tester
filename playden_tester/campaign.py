@@ -135,27 +135,51 @@ class Campaign:
         return self.wait_ready(game, before, gb)
 
     def wait_ready(self, game, before, gb):
-        """Wait until the game's new PS5 title exists and its page offers Play; the title ID."""
+        """Wait until the game has its PS5 title; the title ID.
+
+        Some games get their title when the download ends; others wait on their page with "Play - Sets up
+        first" (A Way Out) until Play is pressed, so the page is looked at every few minutes and set up."""
         # A download of g GB at no less than about 4 MB/s, plus preparation.
-        deadline = time.monotonic() + max(1800, (gb or 30) * 300)
-        resumed = gb is None
+        limit = max(1800, (gb or 30) * 300)
+        deadline, next_look = time.monotonic() + limit, time.monotonic() + 120
         while time.monotonic() < deadline:
             time.sleep(30)
-            new = self.titles() - before
-            if not new and not resumed:
-                continue
-            # Playden is ready when the game's page offers Play.
-            self.playden_front()
-            lines = self.ui.open_game(game, self.library)
-            focused = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 500).lower()
-            self.ui.press("circle")
-            if "play" not in focused:
-                continue
             title = self.installed_title(game)
             if title:
                 return title
-            raise UIError(f"{game.title}: playable, but no PS5 title has its name")
-        raise UIError(f"{game.title}: not ready {int(max(1800, (gb or 30) * 300))} s after Install")
+            if time.monotonic() < next_look:
+                continue
+            next_look = time.monotonic() + 180
+            self.playden_front()
+            lines = self.ui.open_game(game, self.library)
+            button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
+            if "play" in button.lower() and "set" in button.lower():
+                return self.set_up(game)
+            self.ui.press("circle")
+        raise UIError(f"{game.title}: no PS5 title {int(limit)} s after Install")
+
+    def set_up(self, game, timeout=1200):
+        """Press "Play - Sets up first" on the game's page: Playden prepares the game, makes its title and starts
+        it. Close it once the title is there; its title ID. Playden's refusal (a dialog) becomes RefusedGame."""
+        self.say(f"[{game.app}] {game.title}: downloaded; pressing Play so Playden sets it up")
+        self.ui.press("cross", gap=3.0)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            time.sleep(10)
+            title = self.installed_title(game)
+            if title:
+                if self.console.is_running(title):
+                    self.console.close(title)
+                    time.sleep(5)
+                return title
+            if self.console.is_running(PLAYDEN):
+                lines, _, _ = self.ui.read(0.3)
+                dialog = [l.text for l in lines if 250 < l.y < 760 and 480 < l.x < 1440]
+                text = " ".join(dialog).lower()
+                if any(word in text for word in ("can't", "cannot", "refuse", "not supported", "failed", "error")):
+                    self.ui.press("circle")
+                    raise RefusedGame(" ".join(dialog)[:300])
+        raise UIError(f"{game.title}: not set up {timeout} s after Play")
 
     def run_one(self, game):
         """Test one game; its Result, or None when it was skipped."""
@@ -172,6 +196,10 @@ class Campaign:
             except DeferGame as reason:
                 self.say(f"[{game.app}] {game.title}: deferred, {reason}")
                 self.mark(game, status="deferred", detail=str(reason))
+                return None
+            except RefusedGame as reason:
+                self.say(f"[{game.app}] {game.title}: Playden refused to set it up: {reason}")
+                self.mark(game, status="refused", detail=str(reason))
                 return None
         self.mark(game, status="testing", ps5_title=title, downloaded=downloaded)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
@@ -253,6 +281,10 @@ class Campaign:
 
 class SkipGame(Exception):
     pass
+
+
+class RefusedGame(Exception):
+    """Playden would not prepare the game (its dialog's text)."""
 
 
 class DeferGame(Exception):
