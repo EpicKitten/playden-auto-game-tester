@@ -399,3 +399,28 @@ class RefusedTest(unittest.TestCase):
             self.assertIn("\u26d4 Refused", text)
             self.assertIn("no Windows program", text)
             self.assertIn("Downloaded in Playden, then pressed Play.", text)
+
+
+class ReportedTest(unittest.TestCase):
+    GAMES = [{"app": 892970, "title": "Valheim"}, {"app": 239140, "title": "Dying Light"},
+             {"app": 1332010, "title": "Stray"}, {"app": 220, "title": "Half-Life 2"}]
+
+    @staticmethod
+    def issue(number, title, body="", label="test report"):
+        return {"number": number, "title": title, "body": body, "state": "open", "html_url": f"u/{number}",
+                "labels": [{"name": label}]}
+
+    def test_store_link_and_title_count_for_test_reports_only(self):
+        from playden_tester.reported import reported_games
+        issues = [
+            self.issue(1, "[Test] Valheim", "Valheim - https://store.steampowered.com/app/892970/Valheim/"),
+            self.issue(2, "[Test] Half Life 2 (with -gamepadui)", "https://steamdb.info/app/220/"),
+            self.issue(3, "[Test] Dying Light"),
+            # Another game whose name holds one of ours: its own store page, not Dying Light's.
+            self.issue(4, "[Test] Dying Light: The Beast", "https://store.steampowered.com/app/3008130/"),
+            self.issue(5, "[[Test] <Stray Gods: The Roleplay Musical>"),
+            self.issue(6, "Stray crashes", "https://store.steampowered.com/app/1332010/", label="bug"),
+        ]
+        found = reported_games(issues, self.GAMES)
+        self.assertEqual(sorted(found), [220, 239140, 892970])
+        self.assertEqual([i["number"] for i in found[892970]], [1])
