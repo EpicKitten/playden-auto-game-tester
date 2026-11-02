@@ -381,3 +381,21 @@ class DescriptionTest(unittest.TestCase):
         self.assertTrue(description_text(play).startswith("Reawakened from stasis"))
         self.assertNotIn("Read more", description_text(play))
         self.assertTrue(description_text(install).startswith("Return to the Black Mesa"))
+
+
+class RefusedTest(unittest.TestCase):
+    def test_refused_game_gets_a_refused_draft(self):
+        import tempfile
+        from playden_tester.report import RunWriter
+        from playden_tester.runner import Result
+        with tempfile.TemporaryDirectory() as folder:
+            writer = RunWriter(folder, {})
+            r = Result("", "A Way Out", 1222700, status="refused",
+                       detail="Can't play A Way Out - Steam lists no Windows program this console can start")
+            writer.add(r)
+            path = writer.write_issue(r, "| Field | Value |", "refused-1222700-logs.zip")
+            text = path.read_text(encoding="utf-8")
+            self.assertEqual(path.name, "refused-1222700.md")
+            self.assertIn("\u26d4 Refused", text)
+            self.assertIn("no Windows program", text)
+            self.assertIn("Downloaded in Playden, then pressed Play.", text)

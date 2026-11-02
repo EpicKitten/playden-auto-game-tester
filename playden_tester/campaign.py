@@ -181,6 +181,31 @@ class Campaign:
                     raise RefusedGame(" ".join(dialog)[:300])
         raise UIError(f"{game.title}: not set up {timeout} s after Play")
 
+    def refused(self, game, reason):
+        """A game Playden would not prepare: a "Refused" issue draft with the logs, then remove its download."""
+        from .runner import Result
+        result = Result("", game.title, game.app, status="refused", detail=reason,
+                        started_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+        self.writer.add(result)
+        zip_name = f"refused-{game.app}-logs.zip"
+        versions = self.logs.collect("none", game.app, self.out / "logs" / zip_name)
+        issue = self.writer.write_issue(result, versions, zip_name)
+        self.mark(game, status="refused", detail=reason, logs=f"logs/{zip_name}",
+                  issue=str(issue.relative_to(self.out)) if issue else "")
+        self.remove_download(game)
+
+    def remove_download(self, game):
+        if self.keep:
+            return
+        try:
+            self.playden_front()
+            self.ui.uninstall(game.title, self.files, game.app, None)
+            self.mark(game, uninstalled=True, uninstall_error="")
+            self.say(f"[{game.app}] {game.title}: download removed (saves kept)")
+        except UIError as error:
+            self.mark(game, uninstalled=False, uninstall_error=str(error))
+            self.say(f"[{game.app}] {game.title}: download not removed: {error}")
+
     def run_one(self, game):
         """Test one game; its Result, or None when it was skipped."""
         title = self.installed_title(game)
@@ -199,7 +224,7 @@ class Campaign:
                 return None
             except RefusedGame as reason:
                 self.say(f"[{game.app}] {game.title}: Playden refused to set it up: {reason}")
-                self.mark(game, status="refused", detail=str(reason))
+                self.refused(game, str(reason))
                 return None
         self.mark(game, status="testing", ps5_title=title, downloaded=downloaded)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
@@ -242,6 +267,13 @@ class Campaign:
             # An uninstall that timed out while Playden was still deleting files: the title went, so it worked.
             if "still on the console" in entry.get("uninstall_error", "") and entry.get("ps5_title") not in titles:
                 entry.update(uninstalled=True, uninstall_error="")
+        downloads = {e["name"] for e in self.files.list("/data/playden-games")}
+        for entry in list(self.state.values()):
+            # Refused before refused games were cleaned up: remove the download they left.
+            if entry.get("status") == "refused" and entry.get("uninstalled") is not True \
+                    and str(entry["app"]) in downloads and not entry.get("uninstall_error"):
+                from .library import OwnedGame
+                self.remove_download(OwnedGame(entry["app"], entry["title"]))
         by_title = {r.title: r for r in self.writer.results}
         for entry in self.state.values():
             result = by_title.get(entry.get("ps5_title"))
