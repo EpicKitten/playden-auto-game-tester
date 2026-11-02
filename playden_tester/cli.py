@@ -1,4 +1,5 @@
-"""Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home."""
+"""Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home | library |
+campaign | reported | snapshot."""
 import argparse
 import os
 import re
@@ -288,6 +289,30 @@ def cmd_library(args):
     return 0
 
 
+def cmd_reported(args):
+    """The games of a list that already have a test report on Playden's issue tracker."""
+    import json
+    from .reported import ReportedError, fetch_issues, reported_games
+    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    try:
+        issues = fetch_issues(args.repo, token=os.environ.get("GITHUB_TOKEN"))
+    except ReportedError as error:
+        print(error, file=sys.stderr)
+        return 1
+    found = reported_games(issues, games)
+    names = {g["app"]: g["title"].strip() for g in games}
+    rows = [{"app": app, "title": names[app], "issues": found[app]}
+            for app in sorted(found, key=lambda app: names[app].lower())]
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    for row in rows:
+        print(f"{row['app']:>8}  {row['title']}  " + " ".join(f"#{i['number']}" for i in row["issues"]))
+    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} "
+          f"({len(issues)} issues read): {out}")
+    return 0
+
+
 def cmd_campaign(args):
     from .campaign import Campaign, load_list
     from .playden_ui import PlaydenUI
@@ -306,6 +331,12 @@ def cmd_campaign(args):
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
+    elif args.skip_reported and Path(args.skip_reported).exists():
+        from .reported import load_reported
+        reported = load_reported(Path(args.skip_reported))
+        print(f"skipping {sum(g.app in reported for g in games)} games others already reported on "
+              f"({args.skip_reported})")
+        games = [g for g in games if g.app not in reported]
     capture = Capture(args.capture)
     ui = PlaydenUI(console.padd, Screen(capture))
     out = Path(args.out)
@@ -379,7 +410,14 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
+    p.add_argument("--skip-reported", default="data/tested-by-others.json", metavar="FILE",
+                   help="skip the games in this list written by 'reported' (if it exists); '' to test them too")
     p.set_defaults(func=cmd_campaign)
+    p = sub.add_parser("reported", help="find the games of a list that already have a test report on Playden's tracker")
+    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--repo", default="leolobato/playden-ps5", help="GitHub repository (GITHUB_TOKEN raises the rate limit)")
+    p.add_argument("--out", default="data/tested-by-others.json")
+    p.set_defaults(func=cmd_reported)
     p = sub.add_parser("snapshot", help="save a frame from the capture card")
     p.add_argument("file", nargs="?", help="PNG or JPEG path (default snapshot-<time>.png)")
     p.add_argument("--list", action="store_true", help="list capture devices")
@@ -392,7 +430,7 @@ def main(argv=None):
         except CaptureError as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
-    if not args.host:
+    if not args.host and args.func is not cmd_reported:  # reported only reads GitHub
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)

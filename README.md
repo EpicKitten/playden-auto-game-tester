@@ -124,8 +124,15 @@ and checks each step before it presses anything that changes something.
 
 ```sh
 playden-tester library --controller full          # your Steam games with full controller support (asks the Steam store)
+playden-tester reported                           # games of that list others already reported on Playden's tracker
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
+
+`reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and writes
+the games with a test report (one that links the game's Steam or SteamDB page, or is titled with its name) to
+`data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports; `--skip-reported ''`
+tests them anyway, and `--only` always tests the games it names. Unauthenticated, GitHub allows 60 requests an
+hour; set `GITHUB_TOKEN` for more.
 
 For each game, `campaign`:
 
