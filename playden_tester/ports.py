@@ -11,15 +11,17 @@ STEAM_APP = "P1733"
 PLATFORM = "P400"
 
 PLAYSTATION = {"Q5014725": "PlayStation 4", "Q63184502": "PlayStation 5"}
+OLD_PLAYSTATION = {"Q10683": "PlayStation 3", "Q10680": "PlayStation 2", "Q10677": "PlayStation",
+                   "Q188808": "PlayStation Vita", "Q170325": "PlayStation Portable"}
 OTHER_CONSOLES = {
     "Q13361286": "Xbox One", "Q98973368": "Xbox Series X/S", "Q48263": "Xbox 360", "Q132020": "Xbox",
     "Q19610114": "Nintendo Switch", "Q122761124": "Nintendo Switch 2", "Q56942": "Wii U", "Q8079": "Wii",
     "Q182172": "GameCube", "Q184839": "Nintendo 64", "Q203597": "Nintendo 3DS", "Q170323": "Nintendo DS",
-    "Q188642": "Game Boy Advance", "Q10683": "PlayStation 3", "Q10680": "PlayStation 2", "Q10677": "PlayStation",
-    "Q188808": "PlayStation Vita", "Q170325": "PlayStation Portable", "Q184198": "Dreamcast", "Q200912": "Sega Saturn",
+    "Q188642": "Game Boy Advance", "Q184198": "Dreamcast", "Q200912": "Sega Saturn",
 }
-# Campaign order: no console version first, then other consoles, then games already on PS4 or PS5.
-NO_PORT, OTHER_PORT, PLAYSTATION_PORT = 0, 1, 2
+# Campaign order: no console version first, then other consoles only, then any PlayStation release, and games
+# already on PS4 or PS5 (which play on the PS5 without Playden) last.
+NO_PORT, OTHER_PORT, OLD_PLAYSTATION_PORT, PLAYSTATION_PORT = 0, 1, 2, 3
 
 
 class PortsError(Exception):
@@ -50,12 +52,11 @@ def fetch_platforms(apps, batch=150, timeout=90):
 
 def console_ports(platforms):
     """(rank, console names) for one game's platform QIDs."""
-    names = [PLAYSTATION[q] for q in PLAYSTATION if q in platforms]
-    rank = PLAYSTATION_PORT if names else NO_PORT
+    new = [PLAYSTATION[q] for q in PLAYSTATION if q in platforms]
+    old = [OLD_PLAYSTATION[q] for q in OLD_PLAYSTATION if q in platforms]
     others = [OTHER_CONSOLES[q] for q in OTHER_CONSOLES if q in platforms]
-    if others and rank == NO_PORT:
-        rank = OTHER_PORT
-    return rank, names + others
+    rank = (PLAYSTATION_PORT if new else OLD_PLAYSTATION_PORT if old else OTHER_PORT if others else NO_PORT)
+    return rank, new + old + others
 
 
 def load_ranks(path):

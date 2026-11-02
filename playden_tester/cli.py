@@ -338,8 +338,9 @@ def cmd_ports(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     counts = [sum(row["rank"] == rank for row in rows) for rank in range(NO_PORT, PLAYSTATION_PORT + 1)]
-    print(f"{len(rows)} games: {counts[0]} with no console version, {counts[1]} on other consoles, "
-          f"{counts[2]} on PS4 or PS5 ({sum(not row['on_wikidata'] for row in rows)} not on Wikidata): {out}")
+    print(f"{len(rows)} games: {counts[0]} with no console version, {counts[1]} on other consoles only, "
+          f"{counts[2]} on older PlayStations, {counts[3]} on PS4 or PS5 "
+          f"({sum(not row['on_wikidata'] for row in rows)} not on Wikidata): {out}")
     return 0
 
 
@@ -452,7 +453,8 @@ def main(argv=None):
                         "the ones others already reported on and multiplayer games with anti-cheat; --skip alone "
                         "skips none")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE",
-                   help="test games with a console version last, PS4 and PS5 ones at the very end, from this list "
+                   help="test games with a console version last, PlayStation releases after the rest and PS4 and "
+                        "PS5 ones at the very end, from this list "
                         "written by 'ports' (if it exists); '' keeps the list's order")
     p.set_defaults(func=cmd_campaign)
     p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")

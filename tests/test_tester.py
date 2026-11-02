@@ -432,17 +432,20 @@ class PortsTest(unittest.TestCase):
         import tempfile
         from pathlib import Path
         from playden_tester.campaign import load_list
-        from playden_tester.ports import NO_PORT, OTHER_PORT, PLAYSTATION_PORT, console_ports
+        from playden_tester.ports import NO_PORT, OLD_PLAYSTATION_PORT, OTHER_PORT, PLAYSTATION_PORT, console_ports
         self.assertEqual(console_ports({"Q1406"}), (NO_PORT, []))
         self.assertEqual(console_ports({"Q1406", "Q19610114"}), (OTHER_PORT, ["Nintendo Switch"]))
         self.assertEqual(console_ports({"Q13361286", "Q63184502"}), (PLAYSTATION_PORT, ["PlayStation 5", "Xbox One"]))
-        rows = [{"app": 1, "title": "On PS5"}, {"app": 2, "title": "PC only"}, {"app": 3, "title": "On Switch"},
-                {"app": 4, "title": "Installed, on PS5", "installed": True}, {"app": 5, "title": "Not on Wikidata"}]
+        self.assertEqual(console_ports({"Q13361286", "Q10683"}), (OLD_PLAYSTATION_PORT, ["PlayStation 3", "Xbox One"]))
+        rows = [{"app": 1, "title": "On PS5"}, {"app": 6, "title": "On PS3"}, {"app": 2, "title": "PC only"},
+                {"app": 3, "title": "On Switch"}, {"app": 4, "title": "Installed, on PS5", "installed": True},
+                {"app": 5, "title": "Not on Wikidata"}]
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "list.json"
             path.write_text(json.dumps(rows), encoding="utf-8")
-            games = load_list(path, {1: PLAYSTATION_PORT, 2: NO_PORT, 3: OTHER_PORT, 4: PLAYSTATION_PORT})
-        self.assertEqual([g.app for g in games], [4, 2, 5, 3, 1])
+            games = load_list(path, {1: PLAYSTATION_PORT, 2: NO_PORT, 3: OTHER_PORT, 4: PLAYSTATION_PORT,
+                                     6: OLD_PLAYSTATION_PORT})
+        self.assertEqual([g.app for g in games], [4, 2, 5, 3, 6, 1])
 
 
 class CompatibilityTest(unittest.TestCase):
