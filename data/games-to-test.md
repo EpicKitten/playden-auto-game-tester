@@ -1,6 +1,28 @@
 # Games still to test (277 of 461)
 
-Windows games on the Steam account with full controller support that the campaign hasn't tested yet, in campaign order. Left out: games with a test report on leolobato/playden-ps5 or a row in its COMPATIBILITY.md (tested-by-others.json) and multiplayer games with anti-cheat (multiplayer-anticheat.json, from AreWeAntiCheatYet, Steam's categories and anti-cheat notices, and Steam Deck results). Within each group, games with DualSense support (Steam's "DualSense Controller Support") come first, then DualShock only. Games with a console version come last: other consoles only (Xbox, Nintendo) first, then older PlayStations, then PS4 or PS5 (console-ports.json, from Wikidata). Year is the first release on any platform (the earlier of Wikidata's and Steam's dates).
+These are the Steam games that still need testing on Playden. The list includes only Windows games with full controller support, and it's in the order the tester will run them.
+
+**Not on this list**
+
+- Games that someone has already tested, either in a test report on [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues) or on its [compatibility list](https://github.com/leolobato/playden-ps5/blob/main/COMPATIBILITY.md).
+- Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar). Their online play doesn't work under Playden.
+
+**Order**
+
+1. Games that never came out on a console come first.
+2. Next come games that were also released on Xbox or Nintendo consoles, but not on a PlayStation.
+3. Then games released on older PlayStations (PS1 to PS3, PSP, Vita).
+4. Games with a PS4 or PS5 version come last, since they already play on the PS5 without Playden.
+
+Within each group, games that support the DualSense controller come first, then games that support the DualShock, then the rest.
+
+**Columns**
+
+- **Year** is the first release on any platform.
+- **Steam app** is the game's ID on the Steam store: `https://store.steampowered.com/app/<ID>`.
+- **DualSense** says whether Steam lists DualSense support.
+- **Console versions** comes from Wikidata. A dash means none were found.
+- **Note** gives the controller support level, plus anything to watch for when retesting.
 
 | # | Game | Year | Steam app | DualSense | Console versions | Note |
 |---|---|---|---|---|---|---|
