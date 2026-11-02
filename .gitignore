@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 results/
 build/
-data/
+data/*
+!data/games-to-test.md

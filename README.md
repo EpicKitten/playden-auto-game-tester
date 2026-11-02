@@ -167,7 +167,8 @@ Progress is in `results/campaign/campaign.json`: run the same command again to g
 games in a row go wrong, or two failed launches.
 
 `library` reads only Playden's library cache (`library-<SteamID>.cache`), never `session.v1` beside it, which holds
-the Steam sign-in. The lists and the store cache go to `data/`, which is not committed.
+the Steam sign-in. The lists and the store cache go to `data/`, which is not committed, except
+[`data/games-to-test.md`](data/games-to-test.md): the games still to test, in campaign order.
 
 ## Tests
 
