@@ -292,14 +292,18 @@ def cmd_library(args):
 def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
-    from .reported import ReportedError, fetch_issues, reported_games
+    from .reported import ReportedError, compatibility_games, fetch_compatibility, fetch_issues, reported_games
     games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    token = os.environ.get("GITHUB_TOKEN")
     try:
-        issues = fetch_issues(args.repo, token=os.environ.get("GITHUB_TOKEN"))
+        issues = fetch_issues(args.repo, token=token)
+        listed = compatibility_games(fetch_compatibility(args.repo, token=token), games, args.repo)
     except ReportedError as error:
         print(error, file=sys.stderr)
         return 1
     found = reported_games(issues, games)
+    for app, entries in listed.items():
+        found.setdefault(app, []).extend(entries)
     names = {g["app"]: g["title"].strip() for g in games}
     rows = [{"app": app, "title": names[app], "issues": found[app]}
             for app in sorted(found, key=lambda app: names[app].lower())]
@@ -307,9 +311,10 @@ def cmd_reported(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     for row in rows:
-        print(f"{row['app']:>8}  {row['title']}  " + " ".join(f"#{i['number']}" for i in row["issues"]))
-    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} "
-          f"({len(issues)} issues read): {out}")
+        print(f"{row['app']:>8}  {row['title']}  "
+              + " ".join(f"#{i['number']}" if i["number"] else "COMPATIBILITY.md" for i in row["issues"]))
+    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} or are on its compatibility "
+          f"list ({len(issues)} issues, {len(listed)} games from COMPATIBILITY.md): {out}")
     return 0
 
 

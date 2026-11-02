@@ -1,14 +1,19 @@
-"""Games other people already reported on in Playden's issue tracker, so a campaign can skip them.
+"""Games other people already reported on in Playden's issue tracker, or that Playden's compatibility list
+(COMPATIBILITY.md) already covers, so a campaign can skip them.
 
 A test report (label "test report") counts for a game of the list when it links the game's Steam store or SteamDB
-page, or when its title, without the "[Test]" prefix, is the game's name. Bug reports do not count.
+page, or when its title, without the "[Test]" prefix, is the game's name. Bug reports do not count. A row of the
+compatibility list counts when it links the game's store page.
 """
 import json
 import re
+import urllib.error
 import urllib.request
 
 REPO = "leolobato/playden-ps5"
 API = "https://api.github.com/repos/{repo}/issues?state=all&per_page=100&page={page}"
+COMPATIBILITY = "https://api.github.com/repos/{repo}/contents/COMPATIBILITY.md"
+COMPATIBILITY_ROW = re.compile(r"^\|\s*\[([^\]]+)\]\(https://store\.steampowered\.com/app/(\d+)[^)]*\)\s*\|\s*([^|]+?)\s*\|", re.M)
 LABEL = "test report"
 APP_LINK = re.compile(r"(?:store\.steampowered\.com|steamdb\.info)/app/(\d+)")
 TEST_PREFIX = re.compile(r"^\[+\s*test(?:\s+report)?\s*\]+\s*", re.I)
@@ -35,6 +40,35 @@ def fetch_issues(repo=REPO, token=None, timeout=30, max_pages=50):
         if len(rows) < 100:
             break
     return issues
+
+
+def fetch_compatibility(repo=REPO, token=None, timeout=30):
+    """The text of the repository's COMPATIBILITY.md ("" when it has none)."""
+    headers = {"Accept": "application/vnd.github.raw", "User-Agent": "playden-auto-tester"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(COMPATIBILITY.format(repo=repo), headers=headers),
+                                    timeout=timeout) as response:
+            return response.read().decode("utf-8")
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return ""
+        raise ReportedError(f"could not read {repo}'s compatibility list: {error}") from error
+    except OSError as error:
+        raise ReportedError(f"could not read {repo}'s compatibility list: {error}") from error
+
+
+def compatibility_games(text, games, repo=REPO):
+    """{Steam app: [entry]} for the games of the list in the compatibility list, with its result."""
+    apps = {int(g["app"]) for g in games}
+    found = {}
+    for name, app, result in COMPATIBILITY_ROW.findall(text):
+        if int(app) in apps:
+            found.setdefault(int(app), []).append({"number": None, "title": f"COMPATIBILITY.md: {name}",
+                                                   "state": result,
+                                                   "url": f"https://github.com/{repo}/blob/main/COMPATIBILITY.md"})
+    return found
 
 
 def _key(text):

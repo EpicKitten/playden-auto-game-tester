@@ -443,3 +443,16 @@ class PortsTest(unittest.TestCase):
             path.write_text(json.dumps(rows), encoding="utf-8")
             games = load_list(path, {1: PLAYSTATION_PORT, 2: NO_PORT, 3: OTHER_PORT, 4: PLAYSTATION_PORT})
         self.assertEqual([g.app for g in games], [4, 2, 5, 3, 1])
+
+
+class CompatibilityTest(unittest.TestCase):
+    def test_rows_with_a_store_link(self):
+        from playden_tester.reported import compatibility_games
+        text = ("| Game | Result | Kit |\n| --- | --- | --- |\n"
+                "| [Celeste](https://store.steampowered.com/app/504230) | ✅ Works | 0.10 |\n"
+                "| [LIMBO](https://store.steampowered.com/app/48000/LIMBO/) | ❌ Broken | 0.12 |\n"
+                "| [Not ours](https://store.steampowered.com/app/1) | ✅ Works | 0.10 |\n")
+        found = compatibility_games(text, [{"app": 504230, "title": "Celeste"}, {"app": 48000, "title": "LIMBO"},
+                                           {"app": 70, "title": "Half-Life"}])
+        self.assertEqual(sorted(found), [48000, 504230])
+        self.assertEqual(found[48000][0]["state"], "❌ Broken")

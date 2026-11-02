@@ -129,8 +129,9 @@ playden-tester ports                              # which of them also came out 
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
 
-`reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and writes
-the games with a test report (one that links the game's Steam or SteamDB page, or is titled with its name) to
+`reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
+`COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
+titled with its name) or a row in the compatibility list to
 `data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
 
 `campaign` also skips the games in `data/multiplayer-anticheat.json` if it is there: multiplayer games with
