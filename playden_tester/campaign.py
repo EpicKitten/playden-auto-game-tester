@@ -13,7 +13,7 @@ from . import catalog
 from .console import HOMEBREW, PLAYDEN, LaunchError
 from .filemanager import FileManagerError
 from .logs import LogCollector
-from .playden_ui import UIError
+from .playden_ui import UIError, same_name
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, STUCK, Runner
 
@@ -38,6 +38,7 @@ class Campaign:
         self.logs = LogCollector(self.files)
         self.state_path = self.out / "campaign.json"
         self.state = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else {}
+        self.library = None  # every owned game (library cache), to predict Library search results
 
     def save(self):
         self.state_path.write_text(json.dumps(self.state, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -50,10 +51,12 @@ class Campaign:
     def titles(self):
         return {e["name"] for e in self.files.list(HOMEBREW) if e["type"] == "d" and e["name"].startswith("FAKE")}
 
-    def installed_title(self, app):
-        for game in catalog.games(self.files):
-            if game.steam_app == app:
-                return game.title
+    def installed_title(self, game):
+        """The game's PS5 title, by the name in its param.json. Not by title logs: Playden reuses the IDs of
+        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log."""
+        for title in catalog.games(self.files, read_logs=False):
+            if same_name(title.name, game.title):
+                return title.title
         return None
 
     def playden_front(self):
@@ -63,9 +66,10 @@ class Campaign:
             time.sleep(8)
         for _ in range(6):
             lines, _, _ = self.ui.read(1.0)
-            if self.ui.home_visible(lines):
+            # The tabs show through a sheet, a dialog or the keyboard, but do not take R1 while one is open.
+            if self.ui.home_visible(lines) and not self.ui.overlay_open(lines):
                 return
-            self.ui.press("circle", gap=1.0)  # close a sheet or dialog left open
+            self.ui.press("circle", gap=1.0)
         raise UIError("Playden's tabs are not on screen")
 
     def evictable(self):
@@ -91,7 +95,7 @@ class Campaign:
                 entry.update(uninstall_error=str(error))
             self.save()
             self.playden_front()
-            lines = self.ui.open_game(game)
+            lines = self.ui.open_game(game, self.library)
             free_gb = free_space(lines) or free_gb
             if free_gb - self.reserve_gb >= need_gb:
                 return free_gb
@@ -107,8 +111,12 @@ class Campaign:
                 game.description = store_details(game.app).get("short_description", "")
             except OSError:
                 pass
+        if any(e["name"] == str(game.app) for e in self.files.list("/data/playden-games")):
+            # Installed by an earlier run that stopped while it downloaded: only wait for it.
+            self.say(f"[{game.app}] {game.title}: already downloading; waiting until it can be played")
+            return self.wait_ready(game, before, None)
         self.playden_front()
-        lines = self.ui.open_game(game)
+        lines = self.ui.open_game(game, self.library)
         button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
         gb = size_gb(button)
         if self.max_gb and gb and gb > self.max_gb:
@@ -124,25 +132,83 @@ class Campaign:
         self.say(f"[{game.app}] {game.title}: installing ({button.strip()}; "
                  f"{'?' if free is None else f'{free:.1f}'} GB free)")
         self.ui.install(game, self.files)
+        return self.wait_ready(game, before, gb)
+
+    def wait_ready(self, game, before, gb):
+        """Wait until the game has its PS5 title; the title ID.
+
+        Some games get their title when the download ends; others wait on their page with "Play - Sets up
+        first" (A Way Out) until Play is pressed, so the page is looked at every few minutes and set up."""
         # A download of g GB at no less than about 4 MB/s, plus preparation.
-        deadline = time.monotonic() + max(1800, (gb or 10) * 300)
+        limit = max(1800, (gb or 30) * 300)
+        deadline, next_look = time.monotonic() + limit, time.monotonic() + 120
         while time.monotonic() < deadline:
             time.sleep(30)
-            new = self.titles() - before
-            if not new:
+            title = self.installed_title(game)
+            if title:
+                return title
+            if time.monotonic() < next_look:
                 continue
-            # The title exists; Playden is ready when the game's page offers Play.
+            next_look = time.monotonic() + 180
             self.playden_front()
-            lines = self.ui.open_game(game)
-            focused = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 500).lower()
+            lines = self.ui.open_game(game, self.library)
+            button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
+            if "play" in button.lower() and "set" in button.lower():
+                return self.set_up(game)
             self.ui.press("circle")
-            if "play" in focused:
-                return sorted(new)[0]
-        raise UIError(f"{game.title}: not ready {self.ready_timeout} s after Install")
+        raise UIError(f"{game.title}: no PS5 title {int(limit)} s after Install")
+
+    def set_up(self, game, timeout=1200):
+        """Press "Play - Sets up first" on the game's page: Playden prepares the game, makes its title and starts
+        it. Close it once the title is there; its title ID. Playden's refusal (a dialog) becomes RefusedGame."""
+        self.say(f"[{game.app}] {game.title}: downloaded; pressing Play so Playden sets it up")
+        self.ui.press("cross", gap=3.0)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            time.sleep(10)
+            title = self.installed_title(game)
+            if title:
+                if self.console.is_running(title):
+                    self.console.close(title)
+                    time.sleep(5)
+                return title
+            if self.console.is_running(PLAYDEN):
+                lines, _, _ = self.ui.read(0.3)
+                dialog = [l.text for l in lines if 250 < l.y < 760 and 480 < l.x < 1440]
+                text = " ".join(dialog).lower()
+                if any(word in text for word in ("can't", "cannot", "refuse", "not supported", "failed", "error")):
+                    self.ui.press("circle")
+                    raise RefusedGame(" ".join(dialog)[:300])
+        raise UIError(f"{game.title}: not set up {timeout} s after Play")
+
+    def refused(self, game, reason):
+        """A game Playden would not prepare: a "Refused" issue draft with the logs, then remove its download."""
+        from .runner import Result
+        result = Result("", game.title, game.app, status="refused", detail=reason,
+                        started_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+        self.writer.add(result)
+        zip_name = f"refused-{game.app}-logs.zip"
+        versions = self.logs.collect("none", game.app, self.out / "logs" / zip_name)
+        issue = self.writer.write_issue(result, versions, zip_name)
+        self.mark(game, status="refused", detail=reason, logs=f"logs/{zip_name}",
+                  issue=str(issue.relative_to(self.out)) if issue else "")
+        self.remove_download(game)
+
+    def remove_download(self, game):
+        if self.keep:
+            return
+        try:
+            self.playden_front()
+            self.ui.uninstall(game.title, self.files, game.app, None)
+            self.mark(game, uninstalled=True, uninstall_error="")
+            self.say(f"[{game.app}] {game.title}: download removed (saves kept)")
+        except UIError as error:
+            self.mark(game, uninstalled=False, uninstall_error=str(error))
+            self.say(f"[{game.app}] {game.title}: download not removed: {error}")
 
     def run_one(self, game):
         """Test one game; its Result, or None when it was skipped."""
-        title = self.installed_title(game.app)
+        title = self.installed_title(game)
         downloaded = False
         if not title:
             try:
@@ -155,6 +221,10 @@ class Campaign:
             except DeferGame as reason:
                 self.say(f"[{game.app}] {game.title}: deferred, {reason}")
                 self.mark(game, status="deferred", detail=str(reason))
+                return None
+            except RefusedGame as reason:
+                self.say(f"[{game.app}] {game.title}: Playden refused to set it up: {reason}")
+                self.refused(game, str(reason))
                 return None
         self.mark(game, status="testing", ps5_title=title, downloaded=downloaded)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
@@ -174,9 +244,10 @@ class Campaign:
             # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
             try:
                 self.playden_front()
-                self.ui.uninstall(game.title, self.files, game.app, title)
-                self.mark(game, uninstalled=True)
-                self.say(f"[{game.app}] {game.title}: uninstalled (saves kept)")
+                how = self.ui.uninstall(game.title, self.files, game.app, title)
+                self.mark(game, uninstalled=True, uninstall_error="")
+                self.say(f"[{game.app}] {game.title}: uninstalled (saves kept"
+                         f"{'; files still being deleted' if how != 'done' else ''})")
             except UIError as error:
                 self.mark(game, uninstalled=False, uninstall_error=str(error))
                 self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
@@ -191,6 +262,18 @@ class Campaign:
                 self.console.close(title)
             except LaunchError as error:
                 raise UIError(f"{title} is still running and could not be closed: {error}") from None
+        titles = self.titles()
+        for entry in self.state.values():
+            # An uninstall that timed out while Playden was still deleting files: the title went, so it worked.
+            if "still on the console" in entry.get("uninstall_error", "") and entry.get("ps5_title") not in titles:
+                entry.update(uninstalled=True, uninstall_error="")
+        downloads = {e["name"] for e in self.files.list("/data/playden-games")}
+        for entry in list(self.state.values()):
+            # Refused before refused games were cleaned up: remove the download they left.
+            if entry.get("status") == "refused" and entry.get("uninstalled") is not True \
+                    and str(entry["app"]) in downloads and not entry.get("uninstall_error"):
+                from .library import OwnedGame
+                self.remove_download(OwnedGame(entry["app"], entry["title"]))
         by_title = {r.title: r for r in self.writer.results}
         for entry in self.state.values():
             result = by_title.get(entry.get("ps5_title"))
@@ -230,6 +313,10 @@ class Campaign:
 
 class SkipGame(Exception):
     pass
+
+
+class RefusedGame(Exception):
+    """Playden would not prepare the game (its dialog's text)."""
 
 
 class DeferGame(Exception):

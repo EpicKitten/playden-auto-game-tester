@@ -313,6 +313,8 @@ def cmd_campaign(args):
                         Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
                         keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb)
+    from .library import read_library
+    campaign.library = read_library(files)
     code = campaign.run(games, limit=args.limit)
     statuses = {}
     for entry in campaign.state.values():

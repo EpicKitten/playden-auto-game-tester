@@ -43,21 +43,34 @@ def ocr(image_path):
 
 
 def focus_box(image_path, region=None, step=2):
-    """The bounding box (x0, y0, x1, y1) of Playden's orange focus outline inside region, or None."""
+    """The bounding box (x0, y0, x1, y1) of Playden's orange focus outline inside region, or None.
+
+    The outline is a ring (or a filled button): its edge columns and rows hold the most orange pixels, while
+    orange cover art is scattered, so only columns and rows with at least 70% of the busiest one's count count."""
     from PIL import Image
     image = Image.open(image_path).convert("RGB")
     x0, y0, x1, y1 = region or (0, 0, image.width, image.height)
     pixels = image.load()
-    xs, ys = [], []
+    cols, orange = {}, set()
     for y in range(y0, y1, step):
         for x in range(x0, x1, step):
             r, g, b = pixels[x, y]
             if r > 200 and 90 < g < 170 and b < 90 and r - g > 70:  # Playden's focus orange, about (235, 130, 50)
-                xs.append(x)
-                ys.append(y)
-    if len(xs) < 40:
+                cols[x] = cols.get(x, 0) + 1
+                orange.add((x, y))
+    if len(orange) < 40:
         return None
-    return min(xs), min(ys), max(xs), max(ys)
+    top_col = max(cols.values())
+    xs = [x for x, n in cols.items() if n >= 0.7 * top_col]
+    left, right = min(xs), max(xs)
+
+    # The outline's top and bottom run almost the whole width (all but the rounded corners); a progress bar
+    # (77% on Settings > Storage) or a line of orange art does not.
+    ys = [y for y in range(y0, y1, step)
+          if sum((x, y) in orange for x in range(left, right + 1, step)) >= 0.85 * (right - left) / step]
+    if not ys:
+        return None
+    return left, min(ys), right, max(ys)
 
 
 class Screen:

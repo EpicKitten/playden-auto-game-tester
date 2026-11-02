@@ -89,6 +89,9 @@ class RunWriter:
             else:
                 status = "❌ Does not start: back to Home, or stays on the spinner"
                 note = f"Still on a black screen or the loading spinner after {r.seconds_running:.0f} s."
+        elif r.status == "refused":
+            status = "⛔ Refused: Playden would not prepare it (say below whether Try anyway or another Program helped)"
+            note = f"Playden refused to set it up after the download: \"{r.detail}\". Try anyway was not tried."
         elif r.status in ("crashed", "exited_early", "did_not_start"):
             status = "❌ Does not start: back to Home, or stays on the spinner"
             note = f"Went back to Home: {r.detail}."
@@ -106,6 +109,7 @@ class RunWriter:
             "### Controls", "", "- [x] DualSense, default (Xbox controller) (virtual DualSense from padd)", "",
             "### Game settings you changed", "", "None.", "",
             "### What happened", "",
+            "1. Downloaded in Playden, then pressed Play." if r.status == "refused" else
             "1. Started from its PS5 title (Playden's relaunch helper), nothing pressed.",
             f"2. {note}",
             f"3. Screen before closing: {verdict or 'not checked'}"
@@ -122,7 +126,7 @@ class RunWriter:
                   "- [x] I own this game (on Steam, or a copy I bought for an imported game).", ""]
         folder = self.folder / "issues"
         folder.mkdir(exist_ok=True)
-        path = folder / f"{r.title}-{r.steam_app or 'local'}.md"
+        path = folder / f"{r.title or 'refused'}-{r.steam_app or 'local'}.md"
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
 
