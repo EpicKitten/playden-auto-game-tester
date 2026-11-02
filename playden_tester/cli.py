@@ -1,5 +1,5 @@
 """Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home | library |
-campaign | reported | snapshot."""
+campaign | reported | ports | snapshot."""
 import argparse
 import os
 import re
@@ -292,14 +292,18 @@ def cmd_library(args):
 def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
-    from .reported import ReportedError, fetch_issues, reported_games
+    from .reported import ReportedError, compatibility_games, fetch_compatibility, fetch_issues, reported_games
     games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    token = os.environ.get("GITHUB_TOKEN")
     try:
-        issues = fetch_issues(args.repo, token=os.environ.get("GITHUB_TOKEN"))
+        issues = fetch_issues(args.repo, token=token)
+        listed = compatibility_games(fetch_compatibility(args.repo, token=token), games, args.repo)
     except ReportedError as error:
         print(error, file=sys.stderr)
         return 1
     found = reported_games(issues, games)
+    for app, entries in listed.items():
+        found.setdefault(app, []).extend(entries)
     names = {g["app"]: g["title"].strip() for g in games}
     rows = [{"app": app, "title": names[app], "issues": found[app]}
             for app in sorted(found, key=lambda app: names[app].lower())]
@@ -307,9 +311,36 @@ def cmd_reported(args):
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     for row in rows:
-        print(f"{row['app']:>8}  {row['title']}  " + " ".join(f"#{i['number']}" for i in row["issues"]))
-    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} "
-          f"({len(issues)} issues read): {out}")
+        print(f"{row['app']:>8}  {row['title']}  "
+              + " ".join(f"#{i['number']}" if i["number"] else "COMPATIBILITY.md" for i in row["issues"]))
+    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} or are on its compatibility "
+          f"list ({len(issues)} issues, {len(listed)} games from COMPATIBILITY.md): {out}")
+    return 0
+
+
+def cmd_ports(args):
+    """Which games of a list also came out on consoles (Wikidata): campaigns test those last."""
+    import json
+    from .ports import NO_PORT, PLAYSTATION_PORT, PortsError, console_ports, fetch_platforms
+    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    try:
+        platforms = fetch_platforms([g["app"] for g in games])
+    except PortsError as error:
+        print(error, file=sys.stderr)
+        return 1
+    rows = []
+    for g in games:
+        rank, ports = console_ports(platforms.get(g["app"], set()))
+        rows.append({"app": g["app"], "title": g["title"].strip(), "rank": rank, "ports": ports,
+                     "on_wikidata": g["app"] in platforms})
+    rows.sort(key=lambda row: (row["rank"], row["title"].lower()))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    counts = [sum(row["rank"] == rank for row in rows) for rank in range(NO_PORT, PLAYSTATION_PORT + 1)]
+    print(f"{len(rows)} games: {counts[0]} with no console version, {counts[1]} on other consoles only, "
+          f"{counts[2]} on older PlayStations, {counts[3]} on PS4 or PS5 "
+          f"({sum(not row['on_wikidata'] for row in rows)} not on Wikidata): {out}")
     return 0
 
 
@@ -327,16 +358,22 @@ def cmd_campaign(args):
     if not console.port_open(ELFLDR_PORT):
         print(f"elfldr is not running on port {ELFLDR_PORT}", file=sys.stderr)
         return 1
-    games = load_list(args.list)
+    ranks = {}
+    if args.ports and Path(args.ports).exists():
+        from .ports import load_ranks
+        ranks = load_ranks(Path(args.ports))
+        print(f"games with a console version go last ({args.ports})")
+    games = load_list(args.list, ranks)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
-    elif args.skip_reported and Path(args.skip_reported).exists():
-        from .reported import load_reported
-        reported = load_reported(Path(args.skip_reported))
-        print(f"skipping {sum(g.app in reported for g in games)} games others already reported on "
-              f"({args.skip_reported})")
-        games = [g for g in games if g.app not in reported]
+    else:
+        from .reported import load_apps
+        for skip in filter(None, args.skip):
+            if Path(skip).exists():
+                apps = load_apps(Path(skip))
+                print(f"skipping {sum(g.app in apps for g in games)} games listed in {skip}")
+                games = [g for g in games if g.app not in apps]
     capture = Capture(args.capture)
     ui = PlaydenUI(console.padd, Screen(capture))
     out = Path(args.out)
@@ -410,9 +447,20 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
-    p.add_argument("--skip-reported", default="data/tested-by-others.json", metavar="FILE",
-                   help="skip the games in this list written by 'reported' (if it exists); '' to test them too")
+    p.add_argument("--skip", nargs="*", metavar="FILE",
+                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "
+                        "the ones others already reported on and multiplayer games with anti-cheat; --skip alone "
+                        "skips none")
+    p.add_argument("--ports", default="data/console-ports.json", metavar="FILE",
+                   help="test games with a console version last, PlayStation releases after the rest and PS4 and "
+                        "PS5 ones at the very end, from this list "
+                        "written by 'ports' (if it exists); '' keeps the list's order")
     p.set_defaults(func=cmd_campaign)
+    p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")
+    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--out", default="data/console-ports.json")
+    p.set_defaults(func=cmd_ports)
     p = sub.add_parser("reported", help="find the games of a list that already have a test report on Playden's tracker")
     p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
     p.add_argument("--repo", default="leolobato/playden-ps5", help="GitHub repository (GITHUB_TOKEN raises the rate limit)")
@@ -430,7 +478,7 @@ def main(argv=None):
         except CaptureError as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
-    if not args.host and args.func is not cmd_reported:  # reported only reads GitHub
+    if not args.host and args.func not in (cmd_reported, cmd_ports):  # these only read GitHub or Wikidata
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)

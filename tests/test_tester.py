@@ -424,3 +424,38 @@ class ReportedTest(unittest.TestCase):
         found = reported_games(issues, self.GAMES)
         self.assertEqual(sorted(found), [220, 239140, 892970])
         self.assertEqual([i["number"] for i in found[892970]], [1])
+
+
+class PortsTest(unittest.TestCase):
+    def test_ranks_and_campaign_order(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import load_list
+        from playden_tester.ports import NO_PORT, OLD_PLAYSTATION_PORT, OTHER_PORT, PLAYSTATION_PORT, console_ports
+        self.assertEqual(console_ports({"Q1406"}), (NO_PORT, []))
+        self.assertEqual(console_ports({"Q1406", "Q19610114"}), (OTHER_PORT, ["Nintendo Switch"]))
+        self.assertEqual(console_ports({"Q13361286", "Q63184502"}), (PLAYSTATION_PORT, ["PlayStation 5", "Xbox One"]))
+        self.assertEqual(console_ports({"Q13361286", "Q10683"}), (OLD_PLAYSTATION_PORT, ["PlayStation 3", "Xbox One"]))
+        rows = [{"app": 1, "title": "On PS5"}, {"app": 6, "title": "On PS3"}, {"app": 2, "title": "PC only"},
+                {"app": 3, "title": "On Switch"}, {"app": 4, "title": "Installed, on PS5", "installed": True},
+                {"app": 5, "title": "Not on Wikidata"}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "list.json"
+            path.write_text(json.dumps(rows), encoding="utf-8")
+            games = load_list(path, {1: PLAYSTATION_PORT, 2: NO_PORT, 3: OTHER_PORT, 4: PLAYSTATION_PORT,
+                                     6: OLD_PLAYSTATION_PORT})
+        self.assertEqual([g.app for g in games], [4, 2, 5, 3, 6, 1])
+
+
+class CompatibilityTest(unittest.TestCase):
+    def test_rows_with_a_store_link(self):
+        from playden_tester.reported import compatibility_games
+        text = ("| Game | Result | Kit |\n| --- | --- | --- |\n"
+                "| [Celeste](https://store.steampowered.com/app/504230) | ✅ Works | 0.10 |\n"
+                "| [LIMBO](https://store.steampowered.com/app/48000/LIMBO/) | ❌ Broken | 0.12 |\n"
+                "| [Not ours](https://store.steampowered.com/app/1) | ✅ Works | 0.10 |\n")
+        found = compatibility_games(text, [{"app": 504230, "title": "Celeste"}, {"app": 48000, "title": "LIMBO"},
+                                           {"app": 70, "title": "Half-Life"}])
+        self.assertEqual(sorted(found), [48000, 504230])
+        self.assertEqual(found[48000][0]["state"], "❌ Broken")

@@ -334,10 +334,12 @@ def free_space(lines):
     return None
 
 
-def load_list(path):
-    """The games of a `library` list (JSON): OwnedGame-like objects."""
+def load_list(path, ranks=None):
+    """The games of a `library` list (JSON): OwnedGame-like objects. Installed games first (no download to wait for),
+    then by rank ({app: rank}, lower first; see ports.py), keeping the list's order otherwise."""
     from .library import OwnedGame
     rows = json.loads(Path(path).read_text(encoding="utf-8"))
-    rows.sort(key=lambda row: not row.get("installed"))  # installed games first: no download to wait for
+    ranks = ranks or {}
+    rows.sort(key=lambda row: (not row.get("installed"), ranks.get(row["app"], 0)))
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]
