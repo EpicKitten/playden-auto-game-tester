@@ -448,6 +448,28 @@ class PortsTest(unittest.TestCase):
         self.assertEqual([g.app for g in games], [4, 2, 5, 3, 6, 1])
 
 
+class ProtonDBTest(unittest.TestCase):
+    def test_tiers_go_before_ports(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import load_list
+        from playden_tester.ports import NO_PORT, PLAYSTATION_PORT
+        from playden_tester.protondb import UNRATED, tier_rank
+        self.assertEqual([tier_rank(t) for t in ("platinum", "gold", "borked", "pending", "unknown")],
+                         [0, 1, 4, UNRATED, UNRATED])
+        rows = [{"app": 1, "title": "Gold, PC only"}, {"app": 2, "title": "Platinum, on PS5"},
+                {"app": 3, "title": "Not looked up"}, {"app": 4, "title": "Borked, installed", "installed": True},
+                {"app": 5, "title": "Gold, on PS5"}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "list.json"
+            path.write_text(json.dumps(rows), encoding="utf-8")
+            games = load_list(path, {1: NO_PORT, 2: PLAYSTATION_PORT, 5: PLAYSTATION_PORT}, None,
+                              {1: tier_rank("gold"), 2: tier_rank("platinum"), 4: tier_rank("borked"),
+                               5: tier_rank("gold")})
+        self.assertEqual([g.app for g in games], [4, 2, 1, 5, 3])
+
+
 class CompatibilityTest(unittest.TestCase):
     def test_rows_with_a_store_link(self):
         from playden_tester.reported import compatibility_games

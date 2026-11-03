@@ -127,6 +127,7 @@ playden-tester library --controller full          # your Steam games with full c
 playden-tester reported                           # games of that list others already reported on Playden's tracker
 playden-tester ports                              # which of them also came out on consoles (Wikidata)
 playden-tester features                           # pads, multiplayer and anti-cheat of each (Steam store)
+playden-tester protondb                           # how well each runs on Linux through Proton (ProtonDB)
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
 
@@ -151,6 +152,11 @@ from Wikidata count as having no console version. `--ports ''` keeps the list's 
 games with Steam's "DualSense Controller Support" go first, then "DualShock Controller Support", from
 `data/store-features.json` (`--features ''` leaves that out). Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
+
+`protondb` reads each game's [ProtonDB](https://www.protondb.com) rating and writes `data/protondb.json`. `campaign`
+then sorts by rating before the console and pad order above: Platinum first, then Gold, Silver, Bronze and Borked,
+with games rated Pending (too few reports) or missing from ProtonDB last. Installed games still come first.
+`--protondb ''` leaves the rating out.
 
 For each game, `campaign`:
 
