@@ -124,12 +124,33 @@ and checks each step before it presses anything that changes something.
 
 ```sh
 playden-tester library --controller full          # your Steam games with full controller support (asks the Steam store)
+playden-tester library --controller partial       # and those with partial support
 playden-tester reported                           # games of that list others already reported on Playden's tracker
 playden-tester ports                              # which of them also came out on consoles (Wikidata)
 playden-tester features                           # pads, multiplayer and anti-cheat of each (Steam store)
 playden-tester protondb                           # how well each runs on Linux through Proton (ProtonDB)
-playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
+playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of both lists
 ```
+
+The other commands read both lists, `data/games-controller-full.json` and `data/games-controller-partial.json`;
+`--list FILE ...` names others. Games with full controller support are tested before games with partial support,
+whose menus or some parts may need a mouse or keyboard. Steam's `controller_support` field only ever says "full", so
+`library` finds partial support by the store's "Partial Controller Support" category.
+
+`update` runs `reported`, `ports`, `features` and `protondb` in one go and then rebuilds the lists of games still to
+test, so keeping them current takes one command. Only `library` and `campaign` need the console.
+
+```sh
+playden-tester update             # check Playden's tracker for new reports and rebuild the lists (a few minutes)
+playden-tester update --players   # also read Steam player numbers again (about half an hour more)
+```
+
+The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them, and
+[`data/games-by-players.md`](data/games-by-players.md), the same games by average Steam players in the last 30 days
+(from [SteamCharts](https://steamcharts.com)). `lists` rebuilds them from what the other commands wrote, and `players`
+reads the player numbers into `data/steam-players.json`. Release years come from Wikidata and the Steam store and are
+kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
+tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
 
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
 `COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
@@ -154,9 +175,9 @@ games with Steam's "DualSense Controller Support" go first, then "DualShock Cont
 hour; set `GITHUB_TOKEN` for more.
 
 `protondb` reads each game's [ProtonDB](https://www.protondb.com) rating and writes `data/protondb.json`. `campaign`
-then sorts by rating before the console and pad order above: Platinum first, then Gold, Silver, Bronze and Borked,
-with games rated Pending (too few reports) or missing from ProtonDB last. Installed games still come first.
-`--protondb ''` leaves the rating out.
+then sorts by rating, after the controller support and before the console and pad order above: Platinum first, then
+Gold, Silver, Bronze and Borked, with games rated Pending (too few reports) or missing from ProtonDB last. Installed
+games still come first. `--protondb ''` leaves the rating out.
 
 For each game, `campaign`:
 

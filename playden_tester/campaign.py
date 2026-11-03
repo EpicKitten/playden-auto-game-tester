@@ -284,8 +284,7 @@ class Campaign:
 
     def run(self, games, limit=None):
         self.recover()
-        done = {app for app, entry in self.state.items()
-                if entry.get("status") not in (None, "testing", "deferred")}
+        done = done_apps(self.state)
         todo = [g for g in games if str(g.app) not in done][:limit]
         self.say(f"{len(todo)} games to test ({len(done)} already done); results in {self.out}")
         failures = 0
@@ -334,17 +333,41 @@ def free_space(lines):
     return None
 
 
-def load_list(path, ranks=None, pads=None, tiers=None):
-    """The games of a `library` list (JSON): OwnedGame-like objects. Installed games first (no download to wait for),
-    then by ProtonDB tier ({app: rank}, best rated first; see protondb.py), then by console rank ({app: rank}, lower
-    first; see ports.py), then by pad rank ({app: rank}: DualSense games first; see storefeatures.py), keeping the
-    list's order otherwise."""
-    from .library import OwnedGame
+def done_apps(state):
+    """The apps (as strings) a campaign's progress counts as tested. A game whose run went wrong in the tester itself
+    ("error", such as a Playden screen it could not read) is tested again."""
+    return {app for app, entry in state.items() if entry.get("status") not in (None, "testing", "deferred", "error")}
+
+
+def read_lists(paths):
+    """The rows of one or more `library` lists (JSON), each game once; lists that don't exist are left out."""
+    rows, seen = [], set()
+    for path in [paths] if isinstance(paths, (str, Path)) else paths:
+        if Path(path).exists():
+            for row in json.loads(Path(path).read_text(encoding="utf-8")):
+                if row["app"] not in seen:
+                    seen.add(row["app"])
+                    rows.append(row)
+    return rows
+
+
+def sort_rows(rows, ranks=None, pads=None, tiers=None):
+    """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then games with
+    full controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank},
+    best rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad
+    rank ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
     from .protondb import UNRATED
     from .storefeatures import NO_PAD
-    rows = json.loads(Path(path).read_text(encoding="utf-8"))
     ranks, pads, tiers = ranks or {}, pads or {}, tiers or {}
-    rows.sort(key=lambda row: (not row.get("installed"), tiers.get(row["app"], UNRATED), ranks.get(row["app"], 0),
-                               pads.get(row["app"], NO_PAD)))
+    return sorted(rows, key=lambda row: (not row.get("installed"), row.get("controller") == "partial",
+                                         tiers.get(row["app"], UNRATED), ranks.get(row["app"], 0),
+                                         pads.get(row["app"], NO_PAD)))
+
+
+def load_list(paths, ranks=None, pads=None, tiers=None):
+    """The games of one or more `library` lists (JSON) as OwnedGame-like objects, in campaign order (see
+    sort_rows)."""
+    from .library import OwnedGame
+    rows = sort_rows(read_lists(paths), ranks, pads, tiers)
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]
