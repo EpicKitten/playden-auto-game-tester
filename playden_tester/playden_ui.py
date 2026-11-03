@@ -470,7 +470,7 @@ class PlaydenUI:
             sheet, box, _ = self.read(0.3, (980, 230, 1900, 900))  # taller with a Language row
             focused = normalize(" ".join(l.text for l in Screen.inside(sheet, box)))
             if not any("toconsolestorage" in normalize(l.text) for l in lines) \
-                    or not focused.startswith("install") or "startsthedownload" not in focused:
+                    or "install" not in focused.replace("startsthedownload", "") or "startsthedownload" not in focused:
                 self.press("circle")
                 raise UIError(f"{game.title}: the install sheet is not Install to Console storage: "
                               f"{[l.text for l in lines][:12]}")

@@ -75,6 +75,14 @@ class Campaign:
                 return title.title
         return None
 
+    def installed_name(self, title, fallback):
+        """The name Playden gave an installed title (its param.json), as Installed games lists it; it can differ
+        from Steam's ("Touhou Mystia's Izakaya" for "东方夜雀食堂 - Touhou Mystia's Izakaya")."""
+        for game in catalog.games(self.files, read_logs=False):
+            if game.title == title and game.name:
+                return game.name
+        return fallback
+
     def playden_front(self):
         """Playden open, on a screen with its tabs."""
         for attempt in range(2):
@@ -116,7 +124,8 @@ class Campaign:
             self.ui.press("circle")
             self.playden_front()
             try:
-                self.ui.uninstall(entry["title"], self.files, entry["app"], entry["ps5_title"])
+                self.ui.uninstall(self.installed_name(entry["ps5_title"], entry["title"]), self.files, entry["app"],
+                                  entry["ps5_title"])
                 entry.update(uninstalled=True, evicted_for=game.app, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
             except UIError as error:
                 entry.update(uninstall_error=str(error))
@@ -406,7 +415,7 @@ class Campaign:
             # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
             try:
                 self.playden_front()
-                how = self.ui.uninstall(game.title, self.files, game.app, title)
+                how = self.ui.uninstall(self.installed_name(title, game.title), self.files, game.app, title)
                 self.mark(game, uninstalled=True, uninstall_error="")
                 self.say(f"[{game.app}] {game.title}: uninstalled (saves kept"
                          f"{'; files still being deleted' if how != 'done' else ''})")
