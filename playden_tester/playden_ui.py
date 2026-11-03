@@ -91,13 +91,23 @@ def description_text(lines):
 
 def search_text(name, limit=28):
     """What to type for a game. Playden keeps a game when the search is part of its title as written (case
-    folded), so this is the start of the title, up to the first character the ABC page has no key for."""
-    text = ""
-    for c in name.upper():
-        if c not in TYPEABLE or len(text) >= limit:
+    folded), so this is the start of the title, up to the first character the ABC page has no key for. A title
+    that starts with characters the page has none for ("东方夜雀食堂 - Touhou Mystia's Izakaya") uses its first
+    typeable run of at least 4 letters instead ("TOUHOU MYSTIA")."""
+    runs, text = [], ""
+    for c in name.upper() + "|":
+        if c in TYPEABLE and len(text) < limit:
+            text += c
+            continue
+        if text.strip():
+            runs.append(text.strip())
+        if c not in TYPEABLE:
+            text = ""
+        else:
             break
-        text += c
-    return text.rstrip()
+    if runs and name.upper().startswith(runs[0]):
+        return runs[0]
+    return next((run for run in runs if len(run.replace(" ", "")) >= 4), "")
 
 
 def predict_results(library, typed):
@@ -457,7 +467,7 @@ class PlaydenUI:
         if Screen.has(lines, "Install game"):
             # Playden 0.10: a sheet that says where the game goes, with Install ("Starts the download") focused.
             # Only console storage is confirmed; a game headed anywhere else is left alone.
-            sheet, box, _ = self.read(0.3, (980, 380, 1900, 760))
+            sheet, box, _ = self.read(0.3, (980, 230, 1900, 900))  # taller with a Language row
             focused = normalize(" ".join(l.text for l in Screen.inside(sheet, box)))
             if not any("toconsolestorage" in normalize(l.text) for l in lines) \
                     or not focused.startswith("install") or "startsthedownload" not in focused:

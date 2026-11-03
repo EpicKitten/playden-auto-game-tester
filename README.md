@@ -73,7 +73,9 @@ Each tested game gets a folder in `data/reports/`, for example `data/reports/143
   posted for you: read it, check the screenshots, and post it yourself if you want to share the result;
 - `result.json`: the result in short.
 
-A game "survived" when it was still running after 90 seconds. A black screen counts as not working.
+A game "survived" when it was still running after 90 seconds. A black screen counts as not working. How games are
+chosen, tested and judged, and what the tests do not cover, is in
+[docs/testing-methodology.md](docs/testing-methodology.md).
 
 ## What the console needs
 
