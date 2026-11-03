@@ -476,13 +476,45 @@ class ListsTest(unittest.TestCase):
         from playden_tester.lists import note, still_to_test
         games = [{"app": 1, "title": "Tested", "controller": "full"}, {"app": 2, "title": "Error", "controller": "full"},
                  {"app": 3, "title": "Reported", "controller": "full"}, {"app": 4, "title": "New", "controller": "full"},
-                 {"app": 5, "title": "Partial", "controller": "partial"}, {"app": 6, "title": "Deferred", "controller": "full"}]
+                 {"app": 5, "title": "Partial", "controller": "partial"}, {"app": 6, "title": "Deferred", "controller": "full"},
+                 {"app": 7, "title": "No pad", "controller": "none"}]
         state = {"1": {"status": "survived"}, "2": {"status": "error", "detail": "could not select the library tab"},
                  "6": {"status": "deferred"}}
         todo = still_to_test(games, {3}, done_apps(state))
-        self.assertEqual([g["app"] for g in todo], [2, 4, 6])
+        self.assertEqual([g["app"] for g in todo], [2, 4, 5, 6])
         self.assertEqual(note(todo[0], state), "Full controller support; retest: could not select the library tab")
         self.assertEqual(note(todo[1], state), "Full controller support")
+        self.assertEqual(note(todo[2], state), "Partial controller support")
+
+    def test_partial_after_full_from_several_lists(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import load_list
+        from playden_tester.protondb import tier_rank
+        full = [{"app": 1, "title": "Full, gold", "controller": "full"},
+                {"app": 2, "title": "Full, pending", "controller": "full"}]
+        partial = [{"app": 3, "title": "Partial, platinum", "controller": "partial"},
+                   {"app": 1, "title": "Listed twice", "controller": "partial"},
+                   {"app": 4, "title": "Partial, installed", "controller": "partial", "installed": True}]
+        with tempfile.TemporaryDirectory() as folder:
+            paths = [Path(folder) / "full.json", Path(folder) / "partial.json", Path(folder) / "missing.json"]
+            paths[0].write_text(json.dumps(full), encoding="utf-8")
+            paths[1].write_text(json.dumps(partial), encoding="utf-8")
+            games = load_list(paths, None, None, {1: tier_rank("gold"), 3: tier_rank("platinum")})
+        self.assertEqual([(g.app, g.controller) for g in games], [(4, "partial"), (1, "full"), (2, "full"),
+                                                                 (3, "partial")])
+
+    def test_partial_from_store_category(self):
+        import io
+        import json
+        from unittest import mock
+        from playden_tester import library
+        entry = {"10": {"success": True, "data": {"type": "game", "platforms": {"windows": True},
+                                                 "categories": [{"id": 2, "description": "Single-player"},
+                                                                {"id": 18, "description": "Partial Controller Support"}]}}}
+        with mock.patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(entry).encode())):
+            self.assertEqual(library.store_details(10)["controller"], "partial")
 
     def test_years(self):
         from playden_tester.lists import release_year, steam_year

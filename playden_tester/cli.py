@@ -11,6 +11,7 @@ from . import catalog, titlelog
 from .console import ELFLDR_PORT, LOGS, PLAYDEN, RELAUNCH_ELF, HOMEBREW, Console, LaunchError
 from .capture import Capture, CaptureError, list_devices
 from .filemanager import FileManager, FileManagerError
+from .campaign import read_lists
 from .library import LibraryError, fill_store_details, read_library
 from .padd import BUTTONS, PORT as PADD_PORT, PaddError
 from .report import RunWriter
@@ -18,6 +19,8 @@ from .runner import LAUNCH_FAILED, Runner, Settings, STUCK
 
 MAX_FAILED_LAUNCHES = 2
 PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
+# The games with full and with partial controller support, from 'library --controller full' and '... partial'.
+LIBRARY_LISTS = ["data/games-controller-full.json", "data/games-controller-partial.json"]
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
          PADD_PORT: "padd virtual controller (optional: input, unattended close)",
@@ -293,7 +296,7 @@ def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
     from .reported import ReportedError, compatibility_games, fetch_compatibility, fetch_issues, reported_games
-    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    games = read_lists(args.list)
     token = os.environ.get("GITHUB_TOKEN")
     try:
         issues = fetch_issues(args.repo, token=token)
@@ -322,7 +325,7 @@ def cmd_ports(args):
     """Which games of a list also came out on consoles (Wikidata): campaigns test those last."""
     import json
     from .ports import NO_PORT, PLAYSTATION_PORT, PortsError, console_ports, fetch_platforms
-    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    games = read_lists(args.list)
     try:
         platforms = fetch_platforms([g["app"] for g in games])
     except PortsError as error:
@@ -349,7 +352,7 @@ def cmd_protondb(args):
     import json
     from collections import Counter
     from .protondb import ProtonDBError, fetch_summaries, tier_rank
-    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    games = read_lists(args.list)
     try:
         summaries = fetch_summaries([g["app"] for g in games])
     except ProtonDBError as error:
@@ -382,7 +385,7 @@ def cmd_lists(args):
     from .ports import load_ranks
     from .protondb import load_tiers
     from .storefeatures import load_pads
-    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    games = read_lists(args.list)
     skip = {row["app"] for path in filter(None, args.skip) for row in _read_json(path, [])}
     state = _read_json(Path(args.campaign) / "campaign.json", {})
     todo = still_to_test(games, skip, done_apps(state))
@@ -471,7 +474,7 @@ def cmd_features(args):
     from collections import Counter
     from .storefeatures import (DUALSENSE, DUALSHOCK, StoreFeaturesError, fetch_areweanticheatyet, fill_features,
                                 multiplayer_anticheat, pad_rank)
-    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    games = read_lists(args.list)
     out, anticheat = Path(args.out), Path(args.anticheat)
     out.parent.mkdir(parents=True, exist_ok=True)
     cache = json.loads(out.read_text(encoding="utf-8")) if out.exists() and not args.refresh else {}
@@ -602,7 +605,7 @@ def main(argv=None):
     p.add_argument("--data", default="data", help="folder for the lists and the store cache")
     p.set_defaults(func=cmd_library)
     p = sub.add_parser("campaign", help="download (through Playden), test, collect logs and uninstall each game of a list")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="results/campaign", help="folder for results, logs, issue drafts and progress")
     p.add_argument("--watch", type=float, default=90.0)
     p.add_argument("--max-gb", type=float, help="skip games bigger than this (default: none; storage is managed)")
@@ -628,11 +631,11 @@ def main(argv=None):
                         "this list written by 'protondb' (if it exists); '' leaves it out")
     p.set_defaults(func=cmd_campaign)
     p = sub.add_parser("protondb", help="look up how well a list's games run on Linux through Proton (ProtonDB)")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/protondb.json")
     p.set_defaults(func=cmd_protondb)
     p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md)")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--skip", nargs="*", metavar="FILE",
                    default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
                    help="leave out the games in these lists, as campaign does")
@@ -653,24 +656,24 @@ def main(argv=None):
     p.set_defaults(func=cmd_players)
     p = sub.add_parser("update", help="bring the lists of games still to test up to date: reported, ports, features, "
                                       "protondb and lists in one go")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--repo", default="leolobato/playden-ps5", help="GitHub repository (GITHUB_TOKEN raises the rate limit)")
     p.add_argument("--players", action="store_true", help="also read player numbers again (about half an hour)")
     p.set_defaults(func=cmd_update)
     p = sub.add_parser("features", help="look up pads, multiplayer and anti-cheat of a list's games (Steam store, "
                                         "AreWeAntiCheatYet)")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/store-features.json", help="store features of each game (kept between runs)")
     p.add_argument("--anticheat", default="data/multiplayer-anticheat.json",
                    help="where to write the multiplayer games with anti-cheat (campaigns skip them)")
     p.add_argument("--refresh", action="store_true", help="look every game up again")
     p.set_defaults(func=cmd_features)
     p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/console-ports.json")
     p.set_defaults(func=cmd_ports)
     p = sub.add_parser("reported", help="find the games of a list that already have a test report on Playden's tracker")
-    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--repo", default="leolobato/playden-ps5", help="GitHub repository (GITHUB_TOKEN raises the rate limit)")
     p.add_argument("--out", default="data/tested-by-others.json")
     p.set_defaults(func=cmd_reported)

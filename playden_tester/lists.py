@@ -21,8 +21,8 @@ DUALSENSE_FIELD = {DUALSENSE: "yes", DUALSHOCK: "dualshock"}
 CONTROLLER = {"full": "Full controller support", "partial": "Partial controller support"}
 
 TO_TEST_INTRO = """\
-These are the Steam games that still need testing on Playden. The list includes only Windows games with full \
-controller support, and it's in the order the tester will run them.
+These are the Steam games that still need testing on Playden. The list includes only Windows games with full or \
+partial controller support, and it's in the order the tester will run them.
 
 **Not on this list**
 
@@ -34,7 +34,8 @@ under Playden.
 
 **Order**
 
-Games are sorted first by their [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux \
+Games with full controller support come before games with partial support, whose menus or some parts may need a \
+mouse or keyboard. Each of those two groups is sorted first by its games' [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux \
 through Proton. Platinum games come first, then Gold, Silver, Bronze and Borked. Games with too few reports for a \
 rating (Pending) or no reports at all come last.
 
@@ -130,8 +131,8 @@ def release_year(app, years):
 
 def still_to_test(games, skip, done):
     """The games of a `library` list still to test: not in skip (a set of apps) or done (apps the campaign tested,
-    as strings; see campaign.done_apps), and with full controller support."""
-    return [g for g in games if g.get("controller") == "full" and g["app"] not in skip and str(g["app"]) not in done]
+    as strings; see campaign.done_apps), and with full or partial controller support."""
+    return [g for g in games if g.get("controller") in CONTROLLER and g["app"] not in skip and str(g["app"]) not in done]
 
 
 def note(game, state):

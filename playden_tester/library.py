@@ -17,6 +17,8 @@ CACHE_NAME = re.compile(r"^library-(\d+)\.cache$")
 MAGIC = b"PDLIB\0"
 STEAM = 1
 STORE_API = "https://store.steampowered.com/api/appdetails?appids={app}&l=english"
+# The store's controller_support field only ever says "full"; partial support shows only as this category.
+PARTIAL_CONTROLLER = 18
 
 
 class LibraryError(Exception):
@@ -117,7 +119,8 @@ def store_details(app, timeout=15):
         return {"controller": "", "platforms": "", "store_type": "unlisted"}
     data = entry.get("data") or {}
     platforms = ",".join(name for name, yes in (data.get("platforms") or {}).items() if yes)
-    return {"controller": data.get("controller_support") or "none", "platforms": platforms,
+    partial = any(c.get("id") == PARTIAL_CONTROLLER for c in data.get("categories") or [])
+    return {"controller": data.get("controller_support") or ("partial" if partial else "none"), "platforms": platforms,
             "store_type": data.get("type", ""), "short_description": data.get("short_description", "")}
 
 
