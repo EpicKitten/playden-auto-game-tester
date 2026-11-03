@@ -470,6 +470,47 @@ class ProtonDBTest(unittest.TestCase):
         self.assertEqual([g.app for g in games], [4, 2, 1, 5, 3])
 
 
+class ListsTest(unittest.TestCase):
+    def test_still_to_test(self):
+        from playden_tester.campaign import done_apps
+        from playden_tester.lists import note, still_to_test
+        games = [{"app": 1, "title": "Tested", "controller": "full"}, {"app": 2, "title": "Error", "controller": "full"},
+                 {"app": 3, "title": "Reported", "controller": "full"}, {"app": 4, "title": "New", "controller": "full"},
+                 {"app": 5, "title": "Partial", "controller": "partial"}, {"app": 6, "title": "Deferred", "controller": "full"}]
+        state = {"1": {"status": "survived"}, "2": {"status": "error", "detail": "could not select the library tab"},
+                 "6": {"status": "deferred"}}
+        todo = still_to_test(games, {3}, done_apps(state))
+        self.assertEqual([g["app"] for g in todo], [2, 4, 6])
+        self.assertEqual(note(todo[0], state), "Full controller support; retest: could not select the library tab")
+        self.assertEqual(note(todo[1], state), "Full controller support")
+
+    def test_years(self):
+        from playden_tester.lists import release_year, steam_year
+        self.assertEqual([steam_year(d) for d in ("Jun 20, 2024", "14 Nov, 2011", "Coming soon", "")],
+                         [2024, 2011, None, None])
+        years = {"wikidata": {"1": 2008}, "steam": {"1": {"year": 2009}, "2": {"year": 2020}, "3": {"year": None}}}
+        self.assertEqual([release_year(app, years) for app in (1, 2, 3)], [2008, 2020, None])
+
+    def test_by_players(self):
+        from playden_tester.lists import by_players_markdown
+        rows = [{"app": 1, "title": "Quiet"}, {"app": 2, "title": "Popular | big"}, {"app": 3, "title": "Unknown"}]
+        text = by_players_markdown(rows, {"1": {"avg": 12.4, "peak": 30}, "2": {"avg": 1500.0, "peak": 2500},
+                                          "3": None}, {2: ["PlayStation 5"]}, "2026-11-02")
+        table = [line for line in text.splitlines() if line[:3] in ("| 1", "| 2", "| 3")]
+        self.assertEqual(table, ["| 1 | Popular \\| big | 1,500 | 2,500 | – | 2 | – | PlayStation 5 | 2 |",
+                                 "| 2 | Quiet | 12 | 30 | – | 1 | – | – | 1 |",
+                                 "| 3 | Unknown | – | – | – | 3 | – | – | 3 |"])
+        self.assertIn("no numbers for 1 of the games", text)
+
+    def test_steamcharts_page(self):
+        from playden_tester.players import last_30_days
+        html = ('<td class="month-cell left italic">Last 30 Days</td>\n<td class="right num-f italic">674.99</td>\n'
+                '<td class="right num-p gainorloss italic">&#43;6.5</td>\n<td class="right gainorloss italic">&#43;0.98%'
+                '</td>\n<td class="right num italic">1,486</td>')
+        self.assertEqual(last_30_days(html), {"avg": 674.99, "peak": 1486})
+        self.assertIsNone(last_30_days("<html>no data</html>"))
+
+
 class CompatibilityTest(unittest.TestCase):
     def test_rows_with_a_store_link(self):
         from playden_tester.reported import compatibility_games

@@ -131,6 +131,21 @@ playden-tester protondb                           # how well each runs on Linux 
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of data/games-controller-full.json
 ```
 
+`update` runs `reported`, `ports`, `features` and `protondb` in one go and then rebuilds the lists of games still to
+test, so keeping them current takes one command. Only `library` and `campaign` need the console.
+
+```sh
+playden-tester update             # check Playden's tracker for new reports and rebuild the lists (a few minutes)
+playden-tester update --players   # also read Steam player numbers again (about half an hour more)
+```
+
+The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them, and
+[`data/games-by-players.md`](data/games-by-players.md), the same games by average Steam players in the last 30 days
+(from [SteamCharts](https://steamcharts.com)). `lists` rebuilds them from what the other commands wrote, and `players`
+reads the player numbers into `data/steam-players.json`. Release years come from Wikidata and the Steam store and are
+kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
+tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
+
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
 `COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
 titled with its name) or a row in the compatibility list to
