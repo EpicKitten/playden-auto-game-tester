@@ -20,6 +20,10 @@ class UIError(Exception):
     pass
 
 
+class DownloadFailed(UIError):
+    """Playden's download of the game failed ("No Windows content to install", "Steam didn't grant access")."""
+
+
 class NotInLibrary(UIError):
     """Playden's Library search does not find the game (no longer shared with the family, say)."""
 
@@ -367,9 +371,56 @@ class PlaydenUI:
             if self.details_match(lines, game) or whole_name:
                 return lines
             self.press("circle", gap=1.2)
-        raise NotInLibrary(f"{game.title}: none of the {min(count, max_results)} search results is this game")
+        raise UIError(f"{game.title}: none of the {min(count, max_results)} search results is this game")
 
     # --- Install and uninstall ----------------------------------------------------------------------------------
+
+    def set_overlay(self, game):
+        """On the game's page: Actions > Game settings > Performance overlay On, Overlay detail Everything (DXVK's
+        HUD with frame rate, a frame-time graph, memory, GPU load and the DXVK version), so screenshots show how the
+        game runs. Leaves the page as it was. Only games drawn through DXVK show it."""
+        def focus():
+            lines, box, _ = self.read(0.5, RIGHT_PANEL)
+            return normalize(" ".join(l.text for l in Screen.inside(lines, box)))
+
+        def pick(option):
+            self.press("cross", gap=1.2)
+            for _ in range(4):
+                if focus().startswith(option):
+                    self.press("cross", gap=1.2)
+                    return
+                self.press("down", gap=0.5)
+            self.press("circle")
+            raise UIError(f"{game.title}: no {option!r} among the choices")
+
+        self.press("options", gap=1.5)
+        for _ in range(5):
+            if focus().startswith("gamesettings"):
+                break
+            self.press("down", gap=0.5)
+        else:
+            self.press("circle")
+            raise UIError(f"{game.title}: no Game settings in its actions")
+        self.press("cross", gap=2.0)
+        try:
+            for _ in range(30):
+                here = focus()
+                if here.startswith("performanceoverlay"):
+                    break
+                self.press("down", gap=0.4)
+            else:
+                raise UIError(f"{game.title}: no Performance overlay in its game settings")
+            if not here.endswith("on"):
+                pick("on")
+            self.press("down", gap=0.6)
+            here = focus()
+            if not here.startswith("overlaydetail"):
+                raise UIError(f"{game.title}: no Overlay detail below Performance overlay ({here[:40]!r})")
+            if not here.endswith("everything"):
+                pick("everything")
+        finally:
+            self.press("circle", gap=1.5)  # close the settings
+            self.press("circle", gap=1.0)  # and the actions menu
 
     def install(self, game, files, timeout=120):
         """Press Install on the game's details page; True once Playden has started on it (its download folder)."""
@@ -377,14 +428,26 @@ class PlaydenUI:
         focused = " ".join(l.text for l in Screen.inside(lines, box))
         if queued(focused):
             return True  # Playden 0.10 queues downloads behind the one running: "Download Queued"
+        if "failed" in focused.lower():
+            raise DownloadFailed(f"{game.title}: Playden's download failed ({focused!r}); its Queue row says why")
         if "paused" in focused.lower():
-            # A download cut short ("Interrupted. Resume to continue."): pressing it resumes it.
+            # A download cut short ("Interrupted. Resume to continue."). Pressing it opens the Queue tab with its
+            # row focused, where Actions > Resume download resumes it.
             self.press("cross", gap=2.0)
-            lines, box, _ = self.read(0.6, (60, 620, 1240, 740))
-            again = " ".join(l.text for l in Screen.inside(lines, box))
-            if "paused" in again.lower():
-                raise UIError(f"{game.title}: its paused download did not resume ({again!r})")
-            return True
+            lines, box, _ = self.read(0.6)
+            row = " ".join(l.text for l in Screen.inside(lines, box))
+            if not same_name(Screen.inside(lines, box)[0].text if Screen.inside(lines, box) else "", game.title):
+                raise UIError(f"{game.title}: Download Paused did not open its Queue row ({row[:80]!r})")
+            self.press("options", gap=1.5)
+            for _ in range(4):
+                lines, box, _ = self.read(0.5, RIGHT_PANEL)
+                item = normalize(" ".join(l.text for l in Screen.inside(lines, box)))
+                if item.startswith("resumedownload"):
+                    self.press("cross", gap=3.0)
+                    return True
+                self.press("down", gap=0.6)
+            self.press("circle")
+            raise UIError(f"{game.title}: no Resume download in its Queue row's actions")
         if "install" not in focused.lower():
             if "play" in focused.lower():
                 return False  # already installed

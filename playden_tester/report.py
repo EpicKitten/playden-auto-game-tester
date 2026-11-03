@@ -84,8 +84,9 @@ class RunWriter:
 
     def write_issue(self, r, versions, logs_zip, path=None, screenshot=None):
         """A draft for Playden's test-report issue form (.github/ISSUE_TEMPLATE/test-report.yml), not posted. It goes
-        to issues/ unless path is given; screenshot names the screenshot to attach instead of the run's own."""
-        screenshot = screenshot or r.screenshot
+        to issues/ unless path is given; screenshot names the screenshot (or a list of them) to attach instead of
+        the run's own."""
+        shots = [s for s in ([screenshot] if isinstance(screenshot, str) else screenshot or []) if s]             or ([r.screenshot] if r.screenshot else [])
         verdict = r.screen.get("verdict")
         if r.status in ("survived", "not_closed") and verdict in ("moving", "still"):
             status = "✅ Works: reaches the menu and plays"
@@ -126,7 +127,7 @@ class RunWriter:
             + (f" (brightness {r.screen['brightness']}/255, motion {r.screen['motion']})" if r.screen else "") + ".",
             f"4. Session in the log: {r.session or 'none'} ({r.session_seconds} s).", "",
             "### Logs and screenshots", "",
-            f"`{logs_zip}` (attach it){', and `' + screenshot + '`' if screenshot else ''}.", "",
+            f"`{logs_zip}` (attach it)" + "".join(f", and `{s}`" for s in shots) + ".", "",
         ]
         if r.problems:
             lines += ["Fatal lines found:", ""] + [f"- `{p}`" for p in r.problems] + [""]

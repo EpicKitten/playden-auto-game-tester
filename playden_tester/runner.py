@@ -24,6 +24,7 @@ class Settings:
     poll: float = 2.0
     auto_close: bool = False      # close a game that survived through padd, instead of waiting for a person
     screen_seconds: float = 4.0   # seconds of screen watched (with a capture card) before a surviving game is closed
+    first_shot: float = 30.0      # seconds after the game starts running for a first screenshot (0: none)
 
 
 @dataclass
@@ -41,7 +42,8 @@ class Result:
     log_tail: str = ""
     started_at: str = ""
     screen: dict = field(default_factory=dict)  # verdict (black, still, moving), brightness, motion
-    screenshot: str = ""
+    screenshot: str = ""         # just before the game is closed, at the end of the watch
+    first_screenshot: str = ""   # first_shot seconds after it started running
     notes: list = field(default_factory=list)  # what detail is made of
 
     @property
@@ -95,7 +97,16 @@ class Runner:
 
         self.say(f"[{game.title}] running, watching for {s.watch:.0f} s")
         start = self.clock()
-        quit_after = self._wait(lambda: not self.console.is_running(game.title), s.watch)
+        first = min(s.first_shot, s.watch) if self.capture and self.shots and s.first_shot else 0
+        quit_after = self._wait(lambda: not self.console.is_running(game.title), first) if first else None
+        if first and quit_after is None:
+            try:
+                result.first_screenshot = self.capture.snapshot(f"{self.shots}/{game.title}-{first:.0f}s.jpg").name
+            except CaptureError as error:
+                self.say(f"[{game.title}] no screenshot at {first:.0f} s: {error}")
+        if quit_after is None:
+            rest = self._wait(lambda: not self.console.is_running(game.title), max(0.0, s.watch - (self.clock() - start)))
+            quit_after = None if rest is None else self.clock() - start
         if quit_after is None:
             result.seconds_running = self.clock() - start
             result.status = SURVIVED

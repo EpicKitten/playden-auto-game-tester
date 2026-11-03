@@ -15,7 +15,7 @@ from .capture import CaptureError
 from .console import HOMEBREW, LOGS, PLAYDEN, LaunchError
 from .filemanager import FileManagerError
 from .logs import LogCollector
-from .playden_ui import NotInLibrary, UIError, same_name
+from .playden_ui import DownloadFailed, NotInLibrary, UIError, same_name
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, STUCK, Runner
 from .webaccess import WebAccessError
@@ -245,21 +245,44 @@ class Campaign:
         self.save_report(game, None, result, versions, self.out / "logs" / zip_name)
         self.remove_download(game)
 
+    def show_overlay(self, game):
+        """Turn on the game's performance overlay at full detail, so its screenshots show frame rate, frame times,
+        memory and GPU load. Its Game settings exist only once it is installed, so this comes after the install."""
+        if not game.description:
+            from .library import store_details
+            try:
+                game.description = store_details(game.app).get("short_description", "")
+            except OSError:
+                pass
+        try:
+            self.ui.open_game(game, self.library)
+            self.ui.set_overlay(game)
+            self.ui.press("circle", gap=1.0)  # back to the Library
+        except UIError as error:
+            self.say(f"[{game.app}] {game.title}: performance overlay not set: {error}")
+            self.playden_front()
+
     def report_folder(self, game):
         return self.reports / f"{game.app}-{slug(game.title)}"
 
     def save_screenshot(self, game, result):
-        """The game's screenshot in its report folder: the one the test took while it ran, or else the screen now
-        (a crash dialog, Home), before Playden comes back to the front."""
+        """The game's screenshots in its report folder: screenshot-30s.jpg (30 s after it started running) and
+        screenshot-90s.jpg (just before it was closed), or, for a game that quit before them, screenshot.jpg of the
+        screen now (a crash dialog, Home), before Playden comes back to the front."""
         if not self.reports:
             return
         folder = self.report_folder(game)
         folder.mkdir(parents=True, exist_ok=True)
+        for old in SCREENSHOTS:
+            (folder / old).unlink(missing_ok=True)  # from an earlier test of the same game
         try:
-            if result.screenshot and (self.out / result.screenshot).exists():
-                shutil.copyfile(self.out / result.screenshot, folder / "screenshot.jpg")
-            else:
-                self.capture.snapshot(str(folder / "screenshot.jpg"))
+            copied = False
+            for taken, name in ((result.first_screenshot, SCREENSHOTS[0]), (result.screenshot, SCREENSHOTS[1])):
+                if taken and (self.out / taken).exists():
+                    shutil.copyfile(self.out / taken, folder / name)
+                    copied = True
+            if not copied:
+                self.capture.snapshot(str(folder / SCREENSHOTS[2]))
         except (OSError, CaptureError) as error:
             self.say(f"[{game.app}] {game.title}: no screenshot for the report folder: {error}")
 
@@ -284,8 +307,8 @@ class Campaign:
             zip_name = "logs.zip"
             if logs_zip.exists():
                 shutil.copyfile(logs_zip, folder / zip_name)
-        shot = "screenshot.jpg" if (folder / "screenshot.jpg").exists() else None
-        self.writer.write_issue(result, versions, zip_name, path=folder / "issue.md", screenshot=shot)
+        shots = [name for name in SCREENSHOTS if (folder / name).exists()]
+        self.writer.write_issue(result, versions, zip_name, path=folder / "issue.md", screenshot=shots)
 
     def remove_download(self, game):
         if self.keep:
@@ -310,6 +333,11 @@ class Campaign:
             except SkipGame as reason:
                 self.say(f"[{game.app}] {game.title}: skipped, {reason}")
                 self.mark(game, status="skipped", detail=str(reason))
+                return None
+            except DownloadFailed as reason:
+                self.say(f"[{game.app}] {game.title}: skipped, {reason}")
+                self.mark(game, status="skipped", detail=str(reason))
+                self.ui.press("circle")
                 return None
             except NotInLibrary as reason:
                 # Not something the tester got wrong, so it does not count towards the three in a row.
@@ -336,6 +364,7 @@ class Campaign:
         # behind the PS5's Home, Funguys Swarm and Looking Up I See Only A Ceiling quit after 2 s.
         try:
             self.playden_front()
+            self.show_overlay(game)
         except (UIError, LaunchError) as error:
             self.say(f"[{game.app}] {game.title}: Playden not on screen before the test: {error}")
         result = self.runner.run(catalog.Game(title, game.title, game.app))
@@ -450,6 +479,8 @@ class DeferGame(Exception):
     """Not enough room now; the next run tries again."""
 
 
+# In a report folder: 30 s after the start, just before the close (90 s), or the screen after a game that quit.
+SCREENSHOTS = ["screenshot-30s.jpg", "screenshot-90s.jpg", "screenshot.jpg"]
 INSTALL_OVERHEAD = 1.25  # the download plus preparation (bottle, shader caches) over the size Playden shows
 QUEUE_WAIT = 6 * 3600  # the longest a game waits in Playden's download queue before it counts as stuck
 

@@ -189,7 +189,9 @@ class RunnerScreenTest(unittest.TestCase):
         self.assertEqual(result.screen["verdict"], "black")
         self.assertFalse(result.passed)
         self.assertEqual(result.screenshot, "FAKE78001.jpg")
-        self.assertEqual(camera.shots, ["shots/FAKE78001.jpg"])
+        self.assertEqual(result.first_screenshot, "FAKE78001-30s.jpg")
+        self.assertEqual(camera.shots, ["shots/FAKE78001-30s.jpg", "shots/FAKE78001.jpg"])
+        self.assertGreaterEqual(result.seconds_running, 60)  # the first screenshot does not shorten the watch
 
 
 class LateLogConsole(FakeConsole):
@@ -500,8 +502,10 @@ class ReportFolderTest(unittest.TestCase):
                 campaign.writer, campaign.say = RunWriter(out, {}), lambda text: None
                 game = OwnedGame(8850, "BioShock 2")
                 result = Result("FAKE78012", "BioShock 2", 8850, status="survived", screen={"verdict": "moving", "brightness": 80, "motion": 5.0},
-                                screenshot="FAKE78012.jpg", started_at="2026-11-03 18:00:00")
+                                screenshot="FAKE78012.jpg", first_screenshot="FAKE78012-30s.jpg",
+                                started_at="2026-11-03 18:00:00")
                 (out / "FAKE78012.jpg").write_bytes(b"jpg")
+                (out / "FAKE78012-30s.jpg").write_bytes(b"jpg30")
                 (out / "logs").mkdir(exist_ok=True)
                 (out / "logs" / "own.zip").write_bytes(b"PK own")
                 campaign.save_screenshot(game, result)
@@ -511,8 +515,9 @@ class ReportFolderTest(unittest.TestCase):
                 zip_name = "logs.zip" if fail else "playden-report.zip"
                 self.assertEqual(campaign.web.asked, ["FAKE78012"])
                 self.assertTrue((game_folder / zip_name).exists())
-                self.assertEqual((game_folder / "screenshot.jpg").read_bytes(), b"jpg")
-                self.assertIn(f"`{zip_name}` (attach it), and `screenshot.jpg`.", issue)
+                self.assertEqual((game_folder / "screenshot-30s.jpg").read_bytes(), b"jpg30")
+                self.assertEqual((game_folder / "screenshot-90s.jpg").read_bytes(), b"jpg")
+                self.assertIn(f"`{zip_name}` (attach it), and `screenshot-30s.jpg`, and `screenshot-90s.jpg`.", issue)
                 self.assertIn("### Result\n\n✅ Works", issue)
                 self.assertIn("| firmware | 12.20 |\n\nThis report is AI generated using Opus 5.5 Medium.\n", issue)
                 self.assertEqual(json.loads((game_folder / "result.json").read_text(encoding="utf-8"))["status"],
