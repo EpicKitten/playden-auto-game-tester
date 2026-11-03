@@ -514,6 +514,7 @@ class ReportFolderTest(unittest.TestCase):
                 self.assertEqual((game_folder / "screenshot.jpg").read_bytes(), b"jpg")
                 self.assertIn(f"`{zip_name}` (attach it), and `screenshot.jpg`.", issue)
                 self.assertIn("### Result\n\n✅ Works", issue)
+                self.assertIn("| firmware | 12.20 |\n\nThis report is AI generated using Opus 5.5 Medium.\n", issue)
                 self.assertEqual(json.loads((game_folder / "result.json").read_text(encoding="utf-8"))["status"],
                                  "survived")
 

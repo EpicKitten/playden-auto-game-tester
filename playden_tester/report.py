@@ -4,6 +4,14 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+# The model that wrote the reports, named in each issue draft's Versions section.
+AI_MODEL = "Opus 5.5 Medium"
+
+
+def ai_line(model=AI_MODEL):
+    return f"This report is AI generated using {model}."
+
+
 SUMMARY_FIELDS = ["title", "name", "steam_app", "status", "screen", "detail", "seconds_running", "session_seconds",
                   "problems", "screenshot"]
 RESULT_LABELS = {
@@ -106,7 +114,7 @@ class RunWriter:
             f"# [Test] {r.name}", "",
             "### Game", "", f"{r.name} — {store}", "",
             "### Result", "", status, "",
-            "### Versions", "", versions.strip(), "",
+            "### Versions", "", versions.strip(), "", ai_line(), "",
             "### Where the game is installed", "", "Console storage", "",
             "### Controls", "", "- [x] DualSense, default (Xbox controller) (virtual DualSense from padd)", "",
             "### Game settings you changed", "", "None.", "",
