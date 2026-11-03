@@ -334,14 +334,17 @@ def free_space(lines):
     return None
 
 
-def load_list(path, ranks=None, pads=None):
+def load_list(path, ranks=None, pads=None, tiers=None):
     """The games of a `library` list (JSON): OwnedGame-like objects. Installed games first (no download to wait for),
-    then by console rank ({app: rank}, lower first; see ports.py), then by pad rank ({app: rank}: DualSense games
-    first; see storefeatures.py), keeping the list's order otherwise."""
+    then by ProtonDB tier ({app: rank}, best rated first; see protondb.py), then by console rank ({app: rank}, lower
+    first; see ports.py), then by pad rank ({app: rank}: DualSense games first; see storefeatures.py), keeping the
+    list's order otherwise."""
     from .library import OwnedGame
+    from .protondb import UNRATED
     from .storefeatures import NO_PAD
     rows = json.loads(Path(path).read_text(encoding="utf-8"))
-    ranks, pads = ranks or {}, pads or {}
-    rows.sort(key=lambda row: (not row.get("installed"), ranks.get(row["app"], 0), pads.get(row["app"], NO_PAD)))
+    ranks, pads, tiers = ranks or {}, pads or {}, tiers or {}
+    rows.sort(key=lambda row: (not row.get("installed"), tiers.get(row["app"], UNRATED), ranks.get(row["app"], 0),
+                               pads.get(row["app"], NO_PAD)))
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]

@@ -1,5 +1,5 @@
 """Command line: playden-tester doctor | list | launch | logs | run | padd | press | stick | close | home | library |
-campaign | reported | ports | features | snapshot."""
+campaign | reported | ports | features | protondb | snapshot."""
 import argparse
 import os
 import re
@@ -344,6 +344,31 @@ def cmd_ports(args):
     return 0
 
 
+def cmd_protondb(args):
+    """ProtonDB's rating of each game of a list: campaigns test the best rated first."""
+    import json
+    from collections import Counter
+    from .protondb import ProtonDBError, fetch_summaries, tier_rank
+    games = json.loads(Path(args.list).read_text(encoding="utf-8"))
+    try:
+        summaries = fetch_summaries([g["app"] for g in games])
+    except ProtonDBError as error:
+        print(error, file=sys.stderr)
+        return 1
+    rows = []
+    for g in games:
+        s = summaries.get(g["app"]) or {}
+        rows.append({"app": g["app"], "title": g["title"].strip(), "tier": s.get("tier") or "unknown",
+                     "score": s.get("score"), "reports": s.get("total", 0), "confidence": s.get("confidence")})
+    rows.sort(key=lambda row: (tier_rank(row["tier"]), -(row["score"] or 0), row["title"].lower()))
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    tiers = Counter(row["tier"] for row in rows)
+    print(f"{len(rows)} games: " + ", ".join(f"{count} {tier}" for tier, count in tiers.most_common()) + f": {out}")
+    return 0
+
+
 def cmd_features(args):
     """Store features of each game of a list (pads, multiplayer, anti-cheat) and the multiplayer games with
     anti-cheat that campaigns skip."""
@@ -402,7 +427,12 @@ def cmd_campaign(args):
         from .storefeatures import load_pads
         pads = load_pads(Path(args.features))
         print(f"DualSense games first within each group ({args.features})")
-    games = load_list(args.list, ranks, pads)
+    tiers = {}
+    if args.protondb and Path(args.protondb).exists():
+        from .protondb import load_tiers
+        tiers = load_tiers(Path(args.protondb))
+        print(f"best ProtonDB rating first ({args.protondb})")
+    games = load_list(args.list, ranks, pads, tiers)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
@@ -498,7 +528,14 @@ def main(argv=None):
     p.add_argument("--features", default="data/store-features.json", metavar="FILE",
                    help="within each group, test DualSense games first, then DualShock ones, from this file written "
                         "by 'features' (if it exists); '' keeps the order")
+    p.add_argument("--protondb", default="data/protondb.json", metavar="FILE",
+                   help="test the games with the best ProtonDB rating first (before the console and pad order), from "
+                        "this list written by 'protondb' (if it exists); '' leaves it out")
     p.set_defaults(func=cmd_campaign)
+    p = sub.add_parser("protondb", help="look up how well a list's games run on Linux through Proton (ProtonDB)")
+    p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
+    p.add_argument("--out", default="data/protondb.json")
+    p.set_defaults(func=cmd_protondb)
     p = sub.add_parser("features", help="look up pads, multiplayer and anti-cheat of a list's games (Steam store, "
                                         "AreWeAntiCheatYet)")
     p.add_argument("--list", default="data/games-controller-full.json", help="a list written by 'library'")
@@ -528,7 +565,7 @@ def main(argv=None):
         except CaptureError as error:
             print(f"error: {error}", file=sys.stderr)
             return 1
-    if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features):  # these only read the web
+    if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features, cmd_protondb):  # these only read the web
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)
