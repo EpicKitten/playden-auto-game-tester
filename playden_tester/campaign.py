@@ -5,20 +5,28 @@ goes on where it was when it is run again.
 """
 import json
 import re
+import shutil
 import time
 from dataclasses import asdict
 from pathlib import Path
 
 from . import catalog
-from .console import HOMEBREW, PLAYDEN, LaunchError
+from .capture import CaptureError
+from .console import HOMEBREW, LOGS, PLAYDEN, LaunchError
 from .filemanager import FileManagerError
 from .logs import LogCollector
-from .playden_ui import UIError, same_name
+from .playden_ui import NotInLibrary, UIError, same_name
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, STUCK, Runner
+from .webaccess import WebAccessError
 
 SIZE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(KB|MB|GB|TB)", re.IGNORECASE)
 UNITS = {"kb": 1 / 1048576, "mb": 1 / 1024, "gb": 1, "tb": 1024}
+
+
+def slug(text):
+    """A folder name from a game's name: "BioShock™ 2" -> "bioshock-2"."""
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-") or "game"
 
 
 def size_gb(text):
@@ -28,8 +36,11 @@ def size_gb(text):
 
 class Campaign:
     def __init__(self, console, ui, capture, settings, out, meta, say=print, keep=False, max_gb=None,
-                 reserve_gb=15.0):
+                 reserve_gb=15.0, reports=None, web=None):
         self.console, self.ui, self.files = console, ui, console.files
+        self.capture = capture
+        # A folder per game in reports: its screenshot and Playden's report zip from web (a WebAccess).
+        self.reports, self.web = Path(reports) if reports else None, web
         self.settings, self.say, self.keep, self.max_gb = settings, say, keep, max_gb
         self.reserve_gb = reserve_gb  # free space always left on the console
         self.out = Path(out)
@@ -61,15 +72,26 @@ class Campaign:
 
     def playden_front(self):
         """Playden open, on a screen with its tabs."""
-        if not self.console.is_running(PLAYDEN):
-            self.console.launch(PLAYDEN)
-            time.sleep(8)
-        for _ in range(6):
-            lines, _, _ = self.ui.read(1.0)
-            # The tabs show through a sheet, a dialog or the keyboard, but do not take R1 while one is open.
-            if self.ui.home_visible(lines) and not self.ui.overlay_open(lines):
-                return
-            self.ui.press("circle", gap=1.0)
+        for attempt in range(2):
+            if not self.console.is_running(PLAYDEN):
+                self.console.launch(PLAYDEN)
+                time.sleep(10)
+            for _ in range(6):
+                lines, _, _ = self.ui.read(1.0)
+                # The tabs show through a sheet, a dialog or the keyboard, but do not take R1 while one is open.
+                if self.ui.home_visible(lines) and not self.ui.overlay_open(lines):
+                    return
+                self.ui.press("circle", gap=1.0)
+            if attempt == 0:
+                # Running but not in front (suspended behind the PS5's Home, as Playden 0.10 is after a game):
+                # launching it again does not bring it back, its tile on the PS5's Home does.
+                self.say("Playden is running but not on screen; opening it from the PS5's Home")
+                if not self.ui.open_from_ps_home():
+                    try:
+                        self.console.close(PLAYDEN)
+                    except LaunchError as error:
+                        raise UIError(f"Playden is not on screen and could not be closed: {error}") from None
+                    time.sleep(3)
         raise UIError("Playden's tabs are not on screen")
 
     def evictable(self):
@@ -141,7 +163,8 @@ class Campaign:
         first" (A Way Out) until Play is pressed, so the page is looked at every few minutes and set up."""
         # A download of g GB at no less than about 4 MB/s, plus preparation.
         limit = max(1800, (gb or 30) * 300)
-        deadline, next_look = time.monotonic() + limit, time.monotonic() + 120
+        started = time.monotonic()
+        deadline, next_look = started + limit, started + 120
         while time.monotonic() < deadline:
             time.sleep(30)
             title = self.installed_title(game)
@@ -155,6 +178,9 @@ class Campaign:
             button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
             if "play" in button.lower() and "set" in button.lower():
                 return self.set_up(game)
+            if "queued" in button.lower() and time.monotonic() - started < QUEUE_WAIT:
+                # Waiting behind another download (Playden 0.10's queue): its own time starts once it runs.
+                deadline = max(deadline, time.monotonic() + limit)
             self.ui.press("circle")
         raise UIError(f"{game.title}: no PS5 title {int(limit)} s after Install")
 
@@ -181,6 +207,30 @@ class Campaign:
                     raise RefusedGame(" ".join(dialog)[:300])
         raise UIError(f"{game.title}: not set up {timeout} s after Play")
 
+    def wait_prepared(self, game, timeout=1200):
+        """Wait until Playden has finished preparing the game. Playden 0.10 reserves the PS5 title when it starts
+        preparing and needs a minute or two more (stage-title, copy-template, validate, publish); a game started
+        before that quits at once or is refused (0x80940031), and the prepare is left unfinished."""
+        deadline = time.monotonic() + timeout
+        while True:
+            state, line = prepare_state(self.runtime_log(), game.app)
+            if state in (None, "ready"):
+                return
+            if state == "failed":
+                raise RefusedGame(f"Playden could not prepare it: {line[:300]}")
+            if time.monotonic() > deadline:
+                raise UIError(f"{game.title}: still being prepared {timeout} s on: {line[:200]}")
+            time.sleep(10)
+
+    def runtime_log(self):
+        text = ""
+        for name in ("runtime.log.1", "runtime.log"):
+            try:
+                text += self.files.download(f"{LOGS}/{name}").decode("utf-8", "replace")
+            except FileManagerError:
+                pass
+        return text
+
     def refused(self, game, reason):
         """A game Playden would not prepare: a "Refused" issue draft with the logs, then remove its download."""
         from .runner import Result
@@ -192,7 +242,50 @@ class Campaign:
         issue = self.writer.write_issue(result, versions, zip_name)
         self.mark(game, status="refused", detail=reason, logs=f"logs/{zip_name}",
                   issue=str(issue.relative_to(self.out)) if issue else "")
+        self.save_report(game, None, result, versions, self.out / "logs" / zip_name)
         self.remove_download(game)
+
+    def report_folder(self, game):
+        return self.reports / f"{game.app}-{slug(game.title)}"
+
+    def save_screenshot(self, game, result):
+        """The game's screenshot in its report folder: the one the test took while it ran, or else the screen now
+        (a crash dialog, Home), before Playden comes back to the front."""
+        if not self.reports:
+            return
+        folder = self.report_folder(game)
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            if result.screenshot and (self.out / result.screenshot).exists():
+                shutil.copyfile(self.out / result.screenshot, folder / "screenshot.jpg")
+            else:
+                self.capture.snapshot(str(folder / "screenshot.jpg"))
+        except (OSError, CaptureError) as error:
+            self.say(f"[{game.app}] {game.title}: no screenshot for the report folder: {error}")
+
+    def save_report(self, game, title, result, versions, logs_zip):
+        """In the game's report folder: Playden's report zip (or else the tester's own logs zip, logs_zip), the test
+        result, and issue.md, a draft for Playden's test-report form that names the files there to attach."""
+        if not self.reports:
+            return
+        folder = self.report_folder(game)
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "result.json").write_text(json.dumps(
+            {"app": game.app, "game": game.title, "ps5_title": title, "status": result.status,
+             "detail": result.detail, "screen": result.screen.get("verdict", ""),
+             "tested": time.strftime("%Y-%m-%d %H:%M:%S")}, indent=1, ensure_ascii=False), encoding="utf-8")
+        zip_name = "playden-report.zip"
+        try:
+            if not self.web:
+                raise WebAccessError("no web access (Playden 0.9.0 or later, port 7031)")
+            self.web.report_zip(title if title and title != "none" else None, folder / zip_name)
+        except WebAccessError as error:
+            self.say(f"[{game.app}] {game.title}: no Playden report zip, keeping the tester's logs zip: {error}")
+            zip_name = "logs.zip"
+            if logs_zip.exists():
+                shutil.copyfile(logs_zip, folder / zip_name)
+        shot = "screenshot.jpg" if (folder / "screenshot.jpg").exists() else None
+        self.writer.write_issue(result, versions, zip_name, path=folder / "issue.md", screenshot=shot)
 
     def remove_download(self, game):
         if self.keep:
@@ -218,6 +311,12 @@ class Campaign:
                 self.say(f"[{game.app}] {game.title}: skipped, {reason}")
                 self.mark(game, status="skipped", detail=str(reason))
                 return None
+            except NotInLibrary as reason:
+                # Not something the tester got wrong, so it does not count towards the three in a row.
+                self.say(f"[{game.app}] {game.title}: skipped, not in Playden's Library ({reason})")
+                self.mark(game, status="skipped", detail=f"not in Playden's Library: {reason}")
+                self.ui.press("circle")
+                return None
             except DeferGame as reason:
                 self.say(f"[{game.app}] {game.title}: deferred, {reason}")
                 self.mark(game, status="deferred", detail=str(reason))
@@ -226,17 +325,46 @@ class Campaign:
                 self.say(f"[{game.app}] {game.title}: Playden refused to set it up: {reason}")
                 self.refused(game, str(reason))
                 return None
+        try:
+            self.wait_prepared(game)
+        except RefusedGame as reason:
+            self.say(f"[{game.app}] {game.title}: {reason}")
+            self.refused(game, str(reason))
+            return None
         self.mark(game, status="testing", ps5_title=title, downloaded=downloaded)
+        # Games are started with Playden in front, as when Escape Simulator ran; started while Playden was stuck
+        # behind the PS5's Home, Funguys Swarm and Looking Up I See Only A Ceiling quit after 2 s.
+        try:
+            self.playden_front()
+        except (UIError, LaunchError) as error:
+            self.say(f"[{game.app}] {game.title}: Playden not on screen before the test: {error}")
         result = self.runner.run(catalog.Game(title, game.title, game.app))
+        if result.status == LAUNCH_FAILED and "0x80940031" in result.detail:
+            # Seen now and then on Playden 0.10 right after an install (Escape Simulator 2, The Mermaid Mask); the
+            # same title started on the next try.
+            self.say(f"[{game.app}] {game.title}: launch refused (0x80940031); trying once more")
+            time.sleep(15)
+            try:
+                self.playden_front()
+            except (UIError, LaunchError) as error:
+                self.say(f"[{game.app}] {game.title}: Playden not on screen before the retry: {error}")
+            result = self.runner.run(catalog.Game(title, game.title, game.app))
         self.writer.add(result)
+        self.save_screenshot(game, result)
         if result.status == STUCK:
             self.mark(game, status="stuck")
             return result
-        # Start Playden: it writes the session to the title log, and the uninstall happens there.
+        # Start Playden: it writes the session to the title log, and the uninstall happens there. It has to be in
+        # front for that (and for its web access): 0.10 stays suspended after a game.
+        try:
+            self.playden_front()
+        except (UIError, LaunchError) as error:
+            self.say(f"[{game.app}] {game.title}: Playden not on screen after the test: {error}")
         self.writer.rewrite(self.runner.fill_pending(close_playden=False))
         zip_name = f"{title}-{game.app}-logs.zip"
         versions = self.logs.collect(title, game.app, self.out / "logs" / zip_name)
         issue = self.writer.write_issue(result, versions, zip_name)
+        self.save_report(game, title, result, versions, self.out / "logs" / zip_name)
         self.mark(game, status=result.status, screen=result.screen.get("verdict", ""), detail=result.detail,
                   issue=str(issue.relative_to(self.out)) if issue else "", logs=f"logs/{zip_name}")
         if not self.keep and result.status != LAUNCH_FAILED:
@@ -323,6 +451,7 @@ class DeferGame(Exception):
 
 
 INSTALL_OVERHEAD = 1.25  # the download plus preparation (bottle, shader caches) over the size Playden shows
+QUEUE_WAIT = 6 * 3600  # the longest a game waits in Playden's download queue before it counts as stuck
 
 
 def free_space(lines):
@@ -331,6 +460,19 @@ def free_space(lines):
         if "free" in line.text.lower() and "install" in line.text.lower():
             return size_gb(line.text)
     return None
+
+
+def prepare_state(runtime_log, app):
+    """Where Playden's preparation of an app stands, from its runtime.log: (None, "") when the log has no prepare
+    of it, ("ready", line) once the newest one ended with "prepare result app=<app> ready", ("failed", line) when
+    it ended otherwise, and ("preparing", line) while it runs."""
+    lines = [l for l in runtime_log.splitlines() if " prepare " in l and re.search(rf"\bapp={app}\b", l)]
+    if not lines:
+        return None, ""
+    newest = lines[-1]
+    if " prepare result " in newest:
+        return ("ready" if newest.rstrip().endswith(" ready") else "failed"), newest
+    return ("failed" if " ok=0" in newest else "preparing"), newest
 
 
 def done_apps(state):

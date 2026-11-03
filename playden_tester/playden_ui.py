@@ -20,14 +20,36 @@ class UIError(Exception):
     pass
 
 
+class NotInLibrary(UIError):
+    """Playden's Library search does not find the game (no longer shared with the family, say)."""
+
+
 def similar(a, b):
     return difflib.SequenceMatcher(None, normalize(a), normalize(b)).ratio()
+
+
+def playden_tile(image_path):
+    """True when the focused tile on the PS5's Home (the big one at the left of the row) is Playden's: its icon is
+    an orange play mark on black, about 9% orange and 77% near-black pixels. Game art with orange in it
+    (Guacamelee!'s gold logo) is far less dark: under 10% on the tiles seen."""
+    from PIL import Image
+    pixels = list(Image.open(image_path).convert("RGB").crop((170, 120, 345, 300)).getdata())
+    orange = sum(1 for r, g, b in pixels if r > 200 and 90 < g < 170 and b < 80) / len(pixels)
+    dark = sum(1 for p in pixels if max(p) < 40) / len(pixels)
+    return orange > 0.05 and dark > 0.5
+
+
+def queued(button):
+    """True when a game page's focused button says its download is queued or running ("Download Queued")."""
+    text = normalize(button)
+    return "queued" in text or text.startswith("downloading")
 
 
 def same_name(a, b):
     """The same game name, allowing only OCR slips (a letter read wrong, one dropped or added in the middle).
     A name that is the start of the other is a different game: "Half-Life" is not "Half-Life 2"."""
-    x, y = normalize(a), normalize(b)
+    # OCR reads Playden's Q as O ("Oueue", "Ouiplash").
+    x, y = normalize(a).replace("q", "o"), normalize(b).replace("q", "o")
     if x == y:
         return True
     if not x or not y or x.startswith(y) or y.startswith(x):
@@ -36,9 +58,15 @@ def same_name(a, b):
 
 
 def dialog_names(lines, name):
-    """Does the uninstall dialog ("<name>. Frees about 67 MB. ...") name this game and no longer one?"""
+    """Does the uninstall dialog ("<name>. Frees about 67 MB. ...") name this game and no longer one? OCR slips
+    are allowed: "LEGO® Builder's Journey" reads as "LEGOO Builder's Journey"."""
     text = normalize(" ".join(l.text for l in lines))
-    return normalize(name) + "frees" in text
+    # Exact, apart from the symbols OCR reads as a letter or drops: anything looser would let "Escape Simulator"
+    # match "Escape Simulator 2" and uninstall the wrong game.
+    names = {name}
+    for symbol in "®™©":
+        names = {n.replace(symbol, reading) for n in names for reading in ("", "o", "r", "c", "tm")}
+    return any(normalize(n) + "frees" in text for n in names)
 
 
 # Letters, digits and space only: the key shown as "-" typed a comma ("Half,life 2"), and the typed-text check
@@ -94,7 +122,8 @@ def key_moves(text, start=KEYBOARD_START):
 
 
 SIDE_MENUS = [["Installed", "All", "Favorites", "Hidden", "New collection"],
-              ["Account", "Library", "Storage", "Downloads", "Display", "Updates", "About", "Quit Playden"]]
+              ["Account", "Library", "Storage", "Downloads", "Display", "Updates", "Web access", "About",
+               "Quit Playden"]]
 SIDE_STEP = 66  # px between side-menu items
 
 
@@ -139,16 +168,46 @@ class PlaydenUI:
         from .screen import ocr
         path = self.screen.grab(0.8)
         pixels = Image.open(path).convert("RGB").load()
+        # Grey outline; orange (Playden's focus colour) while the tab bar itself has the focus.
         edge = [x for x in range(80, 1100) if all(70 <= c <= 110 for c in pixels[x, 57])]
+        if not edge:
+            edge = [x for y in (50, 52, 54) for x in range(80, 1100)
+                    if pixels[x, y][0] > 200 and 90 < pixels[x, y][1] < 170 and pixels[x, y][2] < 90]
         if not edge:
             return None
         x0, x1 = min(edge), max(edge)
         for line in ocr(path):
-            if line.y < 120 and x0 <= line.center[0] <= x1:
-                for name in TABS:
-                    if name in normalize(line.text) or (name == "queue" and "ueue" in normalize(line.text)):
-                        return name
+            if line.y >= 120 or line.x > x1 or line.x + line.w < x0:
+                continue
+            # OCR can read two tabs as one line ("Saves 20 Settings"): place each tab name along the line by where
+            # it starts in the text and take the one inside the outline.
+            text = line.text.lower()
+            for name in TABS:
+                at = text.find(name if name != "queue" else "ueue")
+                if at >= 0 and x0 - 20 <= line.x + line.w * (at + len(name) / 2) / max(len(text), 1) <= x1 + 20:
+                    return name
         return None
+
+    def open_from_ps_home(self, steps=12):
+        """On the PS5's Home: move along the row of tiles to Playden's (the focused tile's name shows below it)
+        and open it. Playden 0.10 stays suspended after a game closes, and launching it again does not bring it
+        back; its tile does. True once its tile was pressed."""
+        # Playden's tile sits right of the PS5's own (Welcome, PlayStation Store and Plus) among the recent games.
+        # OCR garbles its name ("Play e", ";aoes") and cuts the PlayStation ones short ("PlayStatio"), so its
+        # orange icon counts too.
+        for direction in ("right", "left"):
+            for _ in range(steps if direction == "right" else steps * 2):
+                lines, _, path = self.read(0.8)
+                label = normalize(" ".join(l.text for l in lines if 220 < l.y < 320 and l.x < 1300))
+                if (label.startswith("play") and not label.startswith("playst")) or playden_tile(path):
+                    self.press("cross", gap=3.0)
+                    for _ in range(10):  # it takes about 10 s to show its tabs
+                        if self.home_visible(self.read(1.0)[0]):
+                            break
+                        time.sleep(2)
+                    return True
+                self.press(direction, gap=1.2)
+        return False
 
     def tab(self, name):
         """Select a tab by name. R1 goes right and wraps from Settings to Home."""
@@ -162,6 +221,13 @@ class PlaydenUI:
 
     def type_search(self, text):
         """Type into the open system keyboard and check the field before Done (R2)."""
+        # Playden 0.10 keeps the last search in the field ("Lego" + "myst"): delete it with Square (backspace) first.
+        # Not Triangle: Playden's hint says "Clear", but the system keyboard takes it as space.
+        lines, _, _ = self.read(0.4)
+        old = " ".join(l.text for l in lines if 315 < l.y < 375 and 530 < l.x < 1400).strip()
+        for _ in range(len(old) + 3 if old else 0):
+            self.pad.press("square")
+            time.sleep(0.08)
         for move in key_moves(text):
             self.pad.press(move)
             time.sleep(0.12)
@@ -169,6 +235,7 @@ class PlaydenUI:
         # The field line only (the suggestions row below it repeats the word); the caret can read as an extra "l".
         typed = " ".join(l.text for l in lines if 315 < l.y < 375 and 530 < l.x < 1400)
         if similar(typed, text) < 0.8:
+            self.pad.press("circle")  # close the keyboard, so the next game starts from the Library
             raise UIError(f"typed {typed!r} instead of {text!r}")
         self.pad.press("r2")
 
@@ -197,7 +264,7 @@ class PlaydenUI:
     def library_all(self):
         """Library tab, scope All, no search."""
         self.tab(1)
-        lines = self.expect("Library", "All", settle=1.0)
+        lines = self.expect("Library", "Installed", settle=1.0)  # OCR misses a highlighted "All"
         if Screen.has(lines, "Clear search"):
             self.press("circle")
         # One Left per column from the focused tile, then one more into the side menu (6 columns); presses made
@@ -213,7 +280,9 @@ class PlaydenUI:
             if focused and normalize(focused[0]) == "all":
                 self.press("cross", gap=0.8)
                 return
-            self.press("up" if focused and normalize(focused[0]) in ("favorites", "hidden", "newcollection") else "down")
+            # An item OCR does not read is one below All (Favorites, on 0.10): only Installed is above it, and that
+            # one reads.
+            self.press("down" if focused and normalize(focused[0]) == "installed" else "up")
         raise UIError("could not select All in the Library")
 
     def details_match(self, lines, game):
@@ -280,7 +349,7 @@ class PlaydenUI:
         if count is None:
             raise UIError(f"{game.title}: could not read how many games the search for {typed!r} found")
         if count == 0:
-            raise UIError(f"{game.title}: the search for {typed!r} found nothing")
+            raise NotInLibrary(f"{game.title}: the search for {typed!r} found nothing")
         # Playden's Library can be sorted another way than by name (it is here), so the predicted place is only
         # where to look first; every result is opened and its page compared with the game before it counts.
         predicted = [g.app for g in predict_results(library, typed)] if library else []
@@ -298,7 +367,7 @@ class PlaydenUI:
             if self.details_match(lines, game) or whole_name:
                 return lines
             self.press("circle", gap=1.2)
-        raise UIError(f"{game.title}: none of the {min(count, max_results)} search results is this game")
+        raise NotInLibrary(f"{game.title}: none of the {min(count, max_results)} search results is this game")
 
     # --- Install and uninstall ----------------------------------------------------------------------------------
 
@@ -306,17 +375,42 @@ class PlaydenUI:
         """Press Install on the game's details page; True once Playden has started on it (its download folder)."""
         lines, box, _ = self.read(0.6, (60, 620, 1240, 740))
         focused = " ".join(l.text for l in Screen.inside(lines, box))
+        if queued(focused):
+            return True  # Playden 0.10 queues downloads behind the one running: "Download Queued"
+        if "paused" in focused.lower():
+            # A download cut short ("Interrupted. Resume to continue."): pressing it resumes it.
+            self.press("cross", gap=2.0)
+            lines, box, _ = self.read(0.6, (60, 620, 1240, 740))
+            again = " ".join(l.text for l in Screen.inside(lines, box))
+            if "paused" in again.lower():
+                raise UIError(f"{game.title}: its paused download did not resume ({again!r})")
+            return True
         if "install" not in focused.lower():
             if "play" in focused.lower():
                 return False  # already installed
             raise UIError(f"{game.title}: the focused button is {focused!r}, not Install")
         self.press("cross", gap=1.5)
         lines, _, _ = self.read(0.5)
+        if Screen.has(lines, "Install game"):
+            # Playden 0.10: a sheet that says where the game goes, with Install ("Starts the download") focused.
+            # Only console storage is confirmed; a game headed anywhere else is left alone.
+            sheet, box, _ = self.read(0.3, (980, 380, 1900, 760))
+            focused = normalize(" ".join(l.text for l in Screen.inside(sheet, box)))
+            if not any("toconsolestorage" in normalize(l.text) for l in lines) \
+                    or not focused.startswith("install") or "startsthedownload" not in focused:
+                self.press("circle")
+                raise UIError(f"{game.title}: the install sheet is not Install to Console storage: "
+                              f"{[l.text for l in lines][:12]}")
+            self.press("cross", gap=1.5)
+            lines, _, _ = self.read(0.5)
         if Screen.has(lines, "Cancel") and not Screen.has(lines, "Delete saves"):
             raise UIError(f"{game.title}: Install opened a dialog: {[l.text for l in lines][:10]}")
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             if any(e["name"] == str(game.app) for e in files.list("/data/playden-games")):
+                return True
+            lines, box, _ = self.read(0.3, (60, 620, 1240, 740))
+            if queued(" ".join(l.text for l in Screen.inside(lines, box))):
                 return True
             time.sleep(3)
         raise UIError(f"{game.title}: no download folder {game.app} within {timeout} s of Install")
@@ -334,7 +428,8 @@ class PlaydenUI:
             focused = self.side_focus()
             if focused and normalize(focused[0]) == "storage":
                 break
-            order = ["account", "library", "storage", "downloads", "display", "updates", "about", "quitplayden"]
+            order = ["account", "library", "storage", "downloads", "display", "updates", "webaccess", "about",
+                     "quitplayden"]
             here = order.index(normalize(focused[0])) if focused and normalize(focused[0]) in order else 9
             if normalize(focused[0] if focused else "") == "quitplayden" or here > 2:
                 self.press("up")
@@ -352,15 +447,28 @@ class PlaydenUI:
             raise UIError("could not focus Installed games")
         self.press("cross", gap=1.5)
         self.expect("Select games to uninstall", settle=0.5)
-        row = None
+        row, last, repeats = None, None, 0
+        # Playden 0.10 shows the list full screen ("Uninstall games"), with the name at the left of the focused
+        # row; 0.8 showed it in the right half.
+        wide = Screen.has(self.read(0.2)[0], "Uninstall games")
         for _ in range(60):
-            lines, box, _ = self.read(0.5, RIGHT_PANEL)
+            lines, box, _ = self.read(0.5, (60, 330, 1860, 960) if wide else RIGHT_PANEL)
+            if wide and box and box[3] - box[1] < 40 and box[1] < 860:
+                # The last row on screen touches the list's bottom edge, and only the outline's top is found.
+                box = (box[0], box[1], box[2], box[1] + 90)
             focused = Screen.inside(lines, box)
+            if wide:
+                focused = sorted((l for l in focused if l.x < 1200), key=lambda l: l.y)
             if focused and same_name(focused[0].text, name):
                 row = focused[0].text
                 break
             if focused and normalize(focused[0].text).startswith("uninstallselected"):
                 break
+            here = focused[0].text if focused else None
+            repeats = repeats + 1 if here == last else 0
+            if repeats >= 2:
+                break  # the end of the list
+            last = here
             self.press("down", gap=0.2)
         if not row:
             self.press("circle")

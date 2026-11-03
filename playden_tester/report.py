@@ -74,8 +74,10 @@ class RunWriter:
             return "✅ Runs (picture moving; playability not checked)"
         return RESULT_LABELS.get(r.status, r.status)
 
-    def write_issue(self, r, versions, logs_zip):
-        """A draft for Playden's test-report issue form (.github/ISSUE_TEMPLATE/test-report.yml), not posted."""
+    def write_issue(self, r, versions, logs_zip, path=None, screenshot=None):
+        """A draft for Playden's test-report issue form (.github/ISSUE_TEMPLATE/test-report.yml), not posted. It goes
+        to issues/ unless path is given; screenshot names the screenshot to attach instead of the run's own."""
+        screenshot = screenshot or r.screenshot
         verdict = r.screen.get("verdict")
         if r.status in ("survived", "not_closed") and verdict in ("moving", "still"):
             status = "✅ Works: reaches the menu and plays"
@@ -116,7 +118,7 @@ class RunWriter:
             + (f" (brightness {r.screen['brightness']}/255, motion {r.screen['motion']})" if r.screen else "") + ".",
             f"4. Session in the log: {r.session or 'none'} ({r.session_seconds} s).", "",
             "### Logs and screenshots", "",
-            f"`{logs_zip}` (attach it){', and `' + r.screenshot + '`' if r.screenshot else ''}.", "",
+            f"`{logs_zip}` (attach it){', and `' + screenshot + '`' if screenshot else ''}.", "",
         ]
         if r.problems:
             lines += ["Fatal lines found:", ""] + [f"- `{p}`" for p in r.problems] + [""]
@@ -124,9 +126,10 @@ class RunWriter:
             lines += [f"From `logs/title-{r.title}.log`, near the end:", "", "```", *tail, "```", ""]
         lines += ["### Checks", "", "- [x] kstuff and ShadowMountPlus were loaded when I tested.",
                   "- [x] I own this game (on Steam, or a copy I bought for an imported game).", ""]
-        folder = self.folder / "issues"
-        folder.mkdir(exist_ok=True)
-        path = folder / f"{r.title or 'refused'}-{r.steam_app or 'local'}.md"
+        if not path:
+            folder = self.folder / "issues"
+            folder.mkdir(exist_ok=True)
+            path = folder / f"{r.title or 'refused'}-{r.steam_app or 'local'}.md"
         path.write_text("\n".join(lines), encoding="utf-8")
         return path
 

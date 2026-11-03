@@ -14,6 +14,7 @@ from .filemanager import FileManager, FileManagerError
 from .campaign import read_lists
 from .library import LibraryError, fill_store_details, read_library
 from .padd import BUTTONS, PORT as PADD_PORT, PaddError
+from .webaccess import PORT as WEB_PORT
 from .report import RunWriter
 from .runner import LAUNCH_FAILED, Runner, Settings, STUCK
 
@@ -541,13 +542,22 @@ def cmd_campaign(args):
                 apps = load_apps(Path(skip))
                 print(f"skipping {sum(g.app in apps for g in games)} games listed in {skip}")
                 games = [g for g in games if g.app not in apps]
+    web = None
+    if args.reports:
+        # Asked for each game once Playden is back in front; it does not answer while Playden is closed or behind
+        # a game, so it may well be closed now.
+        from .webaccess import WebAccess
+        web = WebAccess(args.host)
+        print(f"a folder per game in {args.reports}: screenshot, Playden's report zip (web access, port {WEB_PORT}; "
+              "the tester's own logs zip when it does not answer), issue draft")
     capture = Capture(args.capture)
     ui = PlaydenUI(console.padd, Screen(capture))
     out = Path(args.out)
     campaign = Campaign(console, ui, capture,
                         Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
-                        keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb)
+                        keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb,
+                        reports=args.reports or None, web=web)
     from .library import read_library
     campaign.library = read_library(files)
     code = campaign.run(games, limit=args.limit)
@@ -629,6 +639,9 @@ def main(argv=None):
     p.add_argument("--protondb", default="data/protondb.json", metavar="FILE",
                    help="test the games with the best ProtonDB rating first (before the console and pad order), from "
                         "this list written by 'protondb' (if it exists); '' leaves it out")
+    p.add_argument("--reports", default="data/reports", metavar="FOLDER",
+                   help="a folder per game: its screenshot, Playden's report zip (from its web access) and a draft "
+                        "for Playden's test-report issue form; '' writes none")
     p.set_defaults(func=cmd_campaign)
     p = sub.add_parser("protondb", help="look up how well a list's games run on Linux through Proton (ProtonDB)")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
