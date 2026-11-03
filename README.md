@@ -190,6 +190,20 @@ For each game, `campaign`:
    issue form in `results/campaign/issues/`. Nothing is posted;
 5. uninstalls it through Settings > Storage > Installed games, keeping its saves (`--keep` skips this).
 
+Each game also gets a folder in `data/reports/<app>-<name>/` (`--reports FOLDER`, `''` for none):
+
+- `screenshot.jpg`: the screen while the game ran, or, when it had already quit, the screen before the next game;
+- `playden-report.zip`: the report zip of Playden's web access (Playden 0.9.0 or later, port 7031), the one its Logs
+  page offers, with the game's title log. Playden redacts the Steam account name and SteamIDs. When web access does
+  not answer, the folder gets the tester's own redacted `logs.zip` instead;
+- `issue.md`: a draft for Playden's test-report issue form, naming the zip and screenshot beside it to attach;
+- `result.json`: status, detail and screen check.
+
+On Playden 0.10 the campaign waits for Playden to finish preparing a game (`prepare result app=<app> ready` in its
+`runtime.log`) before starting it: the PS5 title exists from the start of the preparation, and a game started before
+the end quits at once or is refused (0x80940031). Playden stays behind after a game, so the campaign opens it again
+from its tile on the PS5's Home.
+
 Progress is in `results/campaign/campaign.json`: run the same command again to go on. A campaign stops after three
 games in a row go wrong, or two failed launches.
 
