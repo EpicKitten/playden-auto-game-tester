@@ -4,6 +4,77 @@ An app to automatically test playden game compatibility on the PS5 remotely via 
 It starts each [Playden](https://github.com/leolobato/playden-ps5) game on a jailbroken PS5, watches whether it keeps
 running, reads the game's log, and writes a result and a test report for each game.
 
+## Quick start
+
+The short version for testing your own Steam games. The sections after this one explain each part in detail.
+
+**You need**
+
+- A jailbroken PS5 with Playden 0.10 or later, signed in to your Steam account, and with
+  [ps5-web-file-manager](https://github.com/owendswang/ps5-web-file-manager) and
+  [elfldr](https://github.com/ps5-payload-dev/elfldr) loaded (plus kstuff and ShadowMountPlus, as Playden needs).
+- A Windows PC on the same network, with [Python 3.10 or later](https://www.python.org/downloads/) and ffmpeg
+  (`winget install Gyan.FFmpeg`).
+- An HDMI capture card between the PS5 and your TV, plugged into the PC. On the PS5, turn off Settings › System ›
+  HDMI › Enable HDCP.
+
+**1. Install the tester** (in a terminal, in this folder)
+
+```sh
+pip install -e .
+```
+
+**2. Tell it where your PS5 and capture card are**
+
+```sh
+playden-tester snapshot --list            # shows your capture card's name
+set PS5_HOST=192.168.1.50                 # your PS5's address (PowerShell: $env:PS5_HOST = "192.168.1.50")
+set PS5_CAPTURE=USB Capture HDMI          # the name from the list (PowerShell: $env:PS5_CAPTURE = "...")
+playden-tester doctor                     # should end with "Ready to test."
+```
+
+**3. Build your list of games** (the lists in `data/` in this repository are the maintainer's, not yours)
+
+```sh
+playden-tester library --controller full      # your Steam games with full controller support
+playden-tester library --controller partial   # and partial support
+playden-tester update                         # skips games others already tested; sorts the rest
+```
+
+Your list is now in `data/games-to-test.md`.
+
+**4. Connect the virtual controller** (once after each PS5 restart; padd has to be built first, see
+[Direct control: padd](#direct-control-padd))
+
+```sh
+playden-tester padd start     # the PS5 then asks "Who's using this controller?"
+playden-tester padd assign    # answers it
+```
+
+**5. Start testing**
+
+```sh
+playden-tester campaign
+```
+
+Leave it running; nobody needs to be at the console. For each game it downloads it through Playden, starts it,
+watches it for 90 seconds, takes screenshots, saves the logs and uninstalls it again (your saves are kept). Press
+Ctrl+C to stop, and run the same command again to carry on where it stopped.
+
+**6. Read the results**
+
+Each tested game gets a folder in `data/reports/`, for example `data/reports/1435790-escape-simulator/`:
+
+- `screenshot-30s.jpg` and `screenshot-90s.jpg`: the game 30 seconds in and just before it was closed, with
+  Playden's performance overlay (frame rate, frame times, memory, GPU load) where the game supports it;
+- `playden-report.zip`: Playden's logs for the game, with your Steam name and SteamIDs hidden;
+- `issue.md`: a ready-to-paste draft for a test report on
+  [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues/new?template=test-report.yml). Nothing is
+  posted for you: read it, check the screenshots, and post it yourself if you want to share the result;
+- `result.json`: the result in short.
+
+A game "survived" when it was still running after 90 seconds. A black screen counts as not working.
+
 ## What the console needs
 
 | Service | Port | Why |
