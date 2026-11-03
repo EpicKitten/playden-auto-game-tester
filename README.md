@@ -168,7 +168,8 @@ games in a row go wrong, or two failed launches.
 
 `library` reads only Playden's library cache (`library-<SteamID>.cache`), never `session.v1` beside it, which holds
 the Steam sign-in. The lists and the store cache go to `data/`, which is not committed, except
-[`data/games-to-test.md`](data/games-to-test.md): the games still to test, in campaign order.
+[`data/games-to-test.md`](data/games-to-test.md), the games still to test in campaign order, and
+[`data/games-by-players.md`](data/games-by-players.md), the same games by Steam players in the last 30 days.
 
 ## Tests
 
