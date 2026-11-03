@@ -5,3 +5,4 @@ results/
 build/
 data/*
 !data/games-to-test.md
+!data/games-by-players.md
