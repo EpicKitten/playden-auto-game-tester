@@ -64,7 +64,12 @@ class Campaign:
 
     def installed_title(self, game):
         """The game's PS5 title, by the name in its param.json. Not by title logs: Playden reuses the IDs of
-        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log."""
+        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log.
+        First by Playden 0.10's runtime.log, which names the title it reserved for the app: the title's name can
+        differ from Steam's ("Touhou Mystia's Izakaya" for "东方夜雀食堂 - Touhou Mystia's Izakaya")."""
+        reserved = reserved_title(self.runtime_log(), game.app)
+        if reserved and reserved in self.titles():
+            return reserved
         for title in catalog.games(self.files, read_logs=False):
             if same_name(title.name, game.title):
                 return title.title
@@ -491,6 +496,18 @@ def free_space(lines):
         if "free" in line.text.lower() and "install" in line.text.lower():
             return size_gb(line.text)
     return None
+
+
+def reserved_title(runtime_log, app):
+    """The PS5 title Playden last reserved for an app ("prepare reserved app=<app> title=FAKE78024"), or None.
+    None as well when a later reservation gave that title to another app: Playden reuses the IDs."""
+    found = None
+    for match in re.finditer(r" prepare reserved app=(\d+) title=(\w+)", runtime_log):
+        if int(match[1]) == app:
+            found = match[2]
+        elif match[2] == found:
+            found = None
+    return found
 
 
 def prepare_state(runtime_log, app):

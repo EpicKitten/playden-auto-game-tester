@@ -544,6 +544,18 @@ class PrepareStateTest(unittest.TestCase):
         self.assertEqual(prepare_state(log, 23867)[0], "failed")
         self.assertEqual(prepare_state(log, 70), (None, ""))
 
+    def test_reserved_title(self):
+        from playden_tester.campaign import reserved_title
+        log = "\n".join([
+            "2026-11-03T18:45:59Z prepare reserved app=1696770 title=FAKE78023 ms=1436",
+            "2026-11-03T18:49:37Z prepare reserved app=2386720 title=FAKE78024 ms=1202",
+            "2026-11-03T23:13:00Z prepare reserved app=1584090 title=FAKE78024 ms=1300",
+        ])
+        self.assertEqual(reserved_title(log, 1584090), "FAKE78024")
+        self.assertEqual(reserved_title(log, 1696770), "FAKE78023")
+        self.assertIsNone(reserved_title(log, 2386720))  # its title went to another game later
+        self.assertIsNone(reserved_title(log, 70))
+
 
 class ListsTest(unittest.TestCase):
     def test_still_to_test(self):
