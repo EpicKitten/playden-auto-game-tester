@@ -133,6 +133,9 @@ class Console:
             self.files.launch_elf(RELAUNCH_ELF)
         except FileManagerError as error:
             raise LaunchError(f"could not send the launch helper: {error}") from None
+        # Playden 0.10 can leave its sandbox folder behind after it quits, so a sandbox that was there before the
+        # launch says nothing: then only the helper's answer counts.
+        stale = self.is_running(title)
         deadline = time.monotonic() + timeout
         text, outcome = "", None
         while outcome is None and time.monotonic() < deadline:
@@ -140,12 +143,14 @@ class Console:
             text = self._result_text()
             if f"title={title}" in text:
                 outcome = launch_outcome(text)
-            if self.is_running(title):
+            if not stale and self.is_running(title):
                 return
         if outcome is True:
             return
         if outcome is None:
             raise LaunchError(f"no answer from the launch helper after {timeout:.0f} s: {text.strip()}")
+        if stale:
+            raise LaunchError(f"launch failed: {text.strip()}")
         deadline = time.monotonic() + grace
         while time.monotonic() < deadline:
             if self.is_running(title):

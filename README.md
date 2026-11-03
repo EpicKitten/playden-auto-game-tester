@@ -4,6 +4,77 @@ An app to automatically test playden game compatibility on the PS5 remotely via 
 It starts each [Playden](https://github.com/leolobato/playden-ps5) game on a jailbroken PS5, watches whether it keeps
 running, reads the game's log, and writes a result and a test report for each game.
 
+## Quick start
+
+The short version for testing your own Steam games. The sections after this one explain each part in detail.
+
+**You need**
+
+- A jailbroken PS5 with Playden 0.10 or later, signed in to your Steam account, and with
+  [ps5-web-file-manager](https://github.com/owendswang/ps5-web-file-manager) and
+  [elfldr](https://github.com/ps5-payload-dev/elfldr) loaded (plus kstuff and ShadowMountPlus, as Playden needs).
+- A Windows PC on the same network, with [Python 3.10 or later](https://www.python.org/downloads/) and ffmpeg
+  (`winget install Gyan.FFmpeg`).
+- An HDMI capture card between the PS5 and your TV, plugged into the PC. On the PS5, turn off Settings › System ›
+  HDMI › Enable HDCP.
+
+**1. Install the tester** (in a terminal, in this folder)
+
+```sh
+pip install -e .
+```
+
+**2. Tell it where your PS5 and capture card are**
+
+```sh
+playden-tester snapshot --list            # shows your capture card's name
+set PS5_HOST=192.168.1.50                 # your PS5's address (PowerShell: $env:PS5_HOST = "192.168.1.50")
+set PS5_CAPTURE=USB Capture HDMI          # the name from the list (PowerShell: $env:PS5_CAPTURE = "...")
+playden-tester doctor                     # should end with "Ready to test."
+```
+
+**3. Build your list of games** (the lists in `data/` in this repository are the maintainer's, not yours)
+
+```sh
+playden-tester library --controller full      # your Steam games with full controller support
+playden-tester library --controller partial   # and partial support
+playden-tester update                         # skips games others already tested; sorts the rest
+```
+
+Your list is now in `data/games-to-test.md`.
+
+**4. Connect the virtual controller** (once after each PS5 restart; padd has to be built first, see
+[Direct control: padd](#direct-control-padd))
+
+```sh
+playden-tester padd start     # the PS5 then asks "Who's using this controller?"
+playden-tester padd assign    # answers it
+```
+
+**5. Start testing**
+
+```sh
+playden-tester campaign
+```
+
+Leave it running; nobody needs to be at the console. For each game it downloads it through Playden, starts it,
+watches it for 90 seconds, takes screenshots, saves the logs and uninstalls it again (your saves are kept). Press
+Ctrl+C to stop, and run the same command again to carry on where it stopped.
+
+**6. Read the results**
+
+Each tested game gets a folder in `data/reports/`, for example `data/reports/1435790-escape-simulator/`:
+
+- `screenshot-30s.jpg` and `screenshot-90s.jpg`: the game 30 seconds in and just before it was closed, with
+  Playden's performance overlay (frame rate, frame times, memory, GPU load) where the game supports it;
+- `playden-report.zip`: Playden's logs for the game, with your Steam name and SteamIDs hidden;
+- `issue.md`: a ready-to-paste draft for a test report on
+  [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues/new?template=test-report.yml). Nothing is
+  posted for you: read it, check the screenshots, and post it yourself if you want to share the result;
+- `result.json`: the result in short.
+
+A game "survived" when it was still running after 90 seconds. A black screen counts as not working.
+
 ## What the console needs
 
 | Service | Port | Why |
@@ -189,6 +260,20 @@ For each game, `campaign`:
    replaced; `/data/playden/user` is never read except the library cache), and a draft for Playden's test-report
    issue form in `results/campaign/issues/`. Nothing is posted;
 5. uninstalls it through Settings > Storage > Installed games, keeping its saves (`--keep` skips this).
+
+Each game also gets a folder in `data/reports/<app>-<name>/` (`--reports FOLDER`, `''` for none):
+
+- `screenshot.jpg`: the screen while the game ran, or, when it had already quit, the screen before the next game;
+- `playden-report.zip`: the report zip of Playden's web access (Playden 0.9.0 or later, port 7031), the one its Logs
+  page offers, with the game's title log. Playden redacts the Steam account name and SteamIDs. When web access does
+  not answer, the folder gets the tester's own redacted `logs.zip` instead;
+- `issue.md`: a draft for Playden's test-report issue form, naming the zip and screenshot beside it to attach;
+- `result.json`: status, detail and screen check.
+
+On Playden 0.10 the campaign waits for Playden to finish preparing a game (`prepare result app=<app> ready` in its
+`runtime.log`) before starting it: the PS5 title exists from the start of the preparation, and a game started before
+the end quits at once or is refused (0x80940031). Playden stays behind after a game, so the campaign opens it again
+from its tile on the PS5's Home.
 
 Progress is in `results/campaign/campaign.json`: run the same command again to go on. A campaign stops after three
 games in a row go wrong, or two failed launches.

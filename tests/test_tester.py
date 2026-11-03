@@ -189,7 +189,9 @@ class RunnerScreenTest(unittest.TestCase):
         self.assertEqual(result.screen["verdict"], "black")
         self.assertFalse(result.passed)
         self.assertEqual(result.screenshot, "FAKE78001.jpg")
-        self.assertEqual(camera.shots, ["shots/FAKE78001.jpg"])
+        self.assertEqual(result.first_screenshot, "FAKE78001-30s.jpg")
+        self.assertEqual(camera.shots, ["shots/FAKE78001-30s.jpg", "shots/FAKE78001.jpg"])
+        self.assertGreaterEqual(result.seconds_running, 60)  # the first screenshot does not shorten the watch
 
 
 class LateLogConsole(FakeConsole):
@@ -468,6 +470,79 @@ class ProtonDBTest(unittest.TestCase):
                               {1: tier_rank("gold"), 2: tier_rank("platinum"), 4: tier_rank("borked"),
                                5: tier_rank("gold")})
         self.assertEqual([g.app for g in games], [4, 2, 1, 5, 3])
+
+
+class ReportFolderTest(unittest.TestCase):
+    def test_folder_has_screenshot_zip_and_issue(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import Campaign, slug
+        from playden_tester.library import OwnedGame
+        from playden_tester.report import RunWriter
+        from playden_tester.runner import Result
+        from playden_tester.webaccess import WebAccessError
+        self.assertEqual(slug("BioShock™ 2: Remastered"), "bioshock-2-remastered")
+
+        class Web:
+            def __init__(self, fail):
+                self.fail, self.asked = fail, []
+
+            def report_zip(self, title, path):
+                self.asked.append(title)
+                if self.fail:
+                    raise WebAccessError("not answering")
+                path.write_bytes(b"PK zip")
+
+        with tempfile.TemporaryDirectory() as folder:
+            out, reports = Path(folder) / "campaign", Path(folder) / "reports"
+            for fail in (False, True):
+                campaign = Campaign.__new__(Campaign)
+                campaign.out, campaign.reports, campaign.web = out, reports, Web(fail)
+                campaign.writer, campaign.say = RunWriter(out, {}), lambda text: None
+                game = OwnedGame(8850, "BioShock 2")
+                result = Result("FAKE78012", "BioShock 2", 8850, status="survived", screen={"verdict": "moving", "brightness": 80, "motion": 5.0},
+                                screenshot="FAKE78012.jpg", first_screenshot="FAKE78012-30s.jpg",
+                                started_at="2026-11-03 18:00:00")
+                (out / "FAKE78012.jpg").write_bytes(b"jpg")
+                (out / "FAKE78012-30s.jpg").write_bytes(b"jpg30")
+                (out / "logs").mkdir(exist_ok=True)
+                (out / "logs" / "own.zip").write_bytes(b"PK own")
+                campaign.save_screenshot(game, result)
+                campaign.save_report(game, "FAKE78012", result, "| firmware | 12.20 |", out / "logs" / "own.zip")
+                game_folder = reports / "8850-bioshock-2"
+                issue = (game_folder / "issue.md").read_text(encoding="utf-8")
+                zip_name = "logs.zip" if fail else "playden-report.zip"
+                self.assertEqual(campaign.web.asked, ["FAKE78012"])
+                self.assertTrue((game_folder / zip_name).exists())
+                self.assertEqual((game_folder / "screenshot-30s.jpg").read_bytes(), b"jpg30")
+                self.assertEqual((game_folder / "screenshot-90s.jpg").read_bytes(), b"jpg")
+                self.assertIn(f"`{zip_name}` (attach it), and `screenshot-30s.jpg`, and `screenshot-90s.jpg`.", issue)
+                self.assertIn("### Result\n\n✅ Works", issue)
+                self.assertIn("| firmware | 12.20 |\n\nThis report is AI generated using Opus 5.5 Medium.\n", issue)
+                self.assertEqual(json.loads((game_folder / "result.json").read_text(encoding="utf-8"))["status"],
+                                 "survived")
+
+
+class PrepareStateTest(unittest.TestCase):
+    def test_prepare_state_from_runtime_log(self):
+        from playden_tester.campaign import prepare_state
+        log = "\n".join([
+            "2026-11-03T18:45:59Z prepare reserved app=1696770 title=FAKE78023 ms=1436",
+            "2026-11-03T18:46:01Z prepare start app=1696770 root=/data/playden-games/1696770 ok=1 ms=3494 message=",
+            "2026-11-03T18:47:11Z prepare step app=1696770 from=publish-profile step_ms=1345 publish_ms=2928 ok=1 "
+            "error=0 state=3 to= code=- message=",
+            "2026-11-03T18:47:12Z prepare result app=1696770 ready",
+            "2026-11-03T18:49:37Z prepare reserved app=2386720 title=FAKE78024 ms=1202",
+            "2026-11-03T18:50:10Z prepare step app=2386720 from=stage-title step_ms=29824 publish_ms=1080 ok=1 "
+            "error=0 state=1 to=copy-template code=- message=",
+            "2026-11-03T18:51:00Z prepare step app=23867 from=stage-title ok=0 error=5 message=no space",
+            "2026-11-03T18:51:00Z admission check title=FAKE78024 result=ok",
+        ])
+        self.assertEqual(prepare_state(log, 1696770)[0], "ready")
+        self.assertEqual(prepare_state(log, 2386720)[0], "preparing")
+        self.assertEqual(prepare_state(log, 23867)[0], "failed")
+        self.assertEqual(prepare_state(log, 70), (None, ""))
 
 
 class ListsTest(unittest.TestCase):
