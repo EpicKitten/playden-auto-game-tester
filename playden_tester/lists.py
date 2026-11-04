@@ -30,7 +30,8 @@ partial controller support, and it's in the order the tester will run them.
 [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues) or on its \
 [compatibility list](https://github.com/leolobato/playden-ps5/blob/main/COMPATIBILITY.md).
 - Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar). Their online play doesn't work \
-under Playden.
+under Playden. Games with a single-player mode stay on the list when their anti-cheat only applies online (VAC, \
+FairFight, PunkBuster).
 
 **Order**
 

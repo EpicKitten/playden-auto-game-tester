@@ -686,14 +686,24 @@ class StoreFeaturesTest(unittest.TestCase):
         self.assertEqual(pad_rank(["DualShock Controller Support"]), DUALSHOCK)
         self.assertEqual(pad_rank(None), NO_PAD)
         games = [{"app": 1, "title": "Notice"}, {"app": 2, "title": "Deck"}, {"app": 3, "title": "VAC solo"},
-                 {"app": 4, "title": "Listed"}, {"app": 5, "title": "Clean"}]
+                 {"app": 4, "title": "Listed"}, {"app": 5, "title": "Clean"}, {"app": 6, "title": "Campaign"},
+                 {"app": 7, "title": "VAC online"}, {"app": 8, "title": "Mixed"}, {"app": 9, "title": "Shooter - Multiplayer"}]
         cache = {"1": {"categories": ["Online PvP"], "notice": ["Easy Anti-Cheat"], "deck_anticheat": False},
                  "2": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": True},
                  "3": {"categories": ["Single-player", "Valve Anti-Cheat enabled"], "notice": [], "deck_anticheat": False},
                  "4": {"categories": ["Single-player", "Co-op"], "notice": [], "deck_anticheat": False},
-                 "5": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": False}}
-        rows = {row["app"]: row for row in multiplayer_anticheat(games, cache, {4: ["BattlEye"]})}
-        self.assertEqual(sorted(rows), [1, 2, 4])  # 3 has no multiplayer
+                 "5": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": False},
+                 "6": {"categories": ["Single-player", "Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False},
+                 "7": {"categories": ["Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False},
+                 "8": {"categories": ["Single-player", "Multi-player"], "notice": [], "deck_anticheat": False},
+                 "9": {"categories": ["Single-player", "Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False}}
+        awacy = {4: ["BattlEye"], 6: ["FairFight", "PunkBuster"], 8: ["VAC", "Treyarch Anti-Cheat"]}
+        rows = {row["app"]: row for row in multiplayer_anticheat(games, cache, awacy)}
+        # 3 has no multiplayer; 6 has a single-player mode and only online anti-cheat
+        self.assertEqual(sorted(rows), [1, 2, 4, 7, 8, 9])
         self.assertEqual(rows[1]["anticheats"], ["Easy Anti-Cheat"])
         self.assertEqual(rows[4]["anticheats"], ["BattlEye"])
         from playden_tester.storefeatures import anticheats

@@ -240,8 +240,9 @@ titled with its name) or a row in the compatibility list to
 Anti-Cheat, BattlEye, VAC and the like), which cannot be played online under Playden. `features` writes it: for each
 game it reads Steam's feature categories and store page, and counts a multiplayer game as having anti-cheat when its
 page shows Steam's anti-cheat notice, its Steam Deck or SteamOS result says "unsupported anti-cheat", it has the
-"Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. Rows added to the
-file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `--skip FILE ...` names
+"Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. A game with a
+single-player mode is still tested when its only anti-cheat is VAC, FairFight or PunkBuster, which act on online play
+alone. Other rows added to the file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `--skip FILE ...` names
 other lists, `--skip` alone skips none, and `--only` always tests the games it names.
 
 `ports` looks up each game's platforms on Wikidata (by its Steam app ID) and writes `data/console-ports.json`.

@@ -498,7 +498,7 @@ def cmd_features(args):
     import json
     from collections import Counter
     from .storefeatures import (DUALSENSE, DUALSHOCK, StoreFeaturesError, fetch_areweanticheatyet, fill_features,
-                                multiplayer_anticheat, pad_rank)
+                                multiplayer_anticheat, pad_rank, playable_alone)
     games = read_lists(args.list)
     out, anticheat = Path(args.out), Path(args.anticheat)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -516,7 +516,7 @@ def cmd_features(args):
     found = {row["app"]: row for row in multiplayer_anticheat(games, cache, awacy)}
     # Keep games added to the list by hand (anti-cheat announced in news, say) unless they now have their own row.
     kept = [row for row in (json.loads(anticheat.read_text(encoding="utf-8")) if anticheat.exists() else [])
-            if row["app"] not in found]
+            if row["app"] not in found and not playable_alone(row)]
     rows = sorted([*found.values(), *kept], key=lambda row: row["title"].lower())
     anticheat.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     pads = Counter(pad_rank((cache.get(str(g["app"])) or {}).get("categories")) for g in games)
