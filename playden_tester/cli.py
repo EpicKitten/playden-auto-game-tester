@@ -540,12 +540,21 @@ def cmd_campaign(args):
     if not args.capture:
         print("a campaign needs the capture card: give --capture or set PS5_CAPTURE", file=sys.stderr)
         return 1
-    if not console.has_padd():
-        print("a campaign needs padd: 'padd start', then 'padd assign'", file=sys.stderr)
-        return 1
     if not console.port_open(ELFLDR_PORT):
         print(f"elfldr is not running on port {ELFLDR_PORT}", file=sys.stderr)
         return 1
+    from .payloadmgr import PayloadManager, send_elf
+    from .recovery import Healer, assign_pad
+    capture = Capture(args.capture)
+    screen = Screen(capture)
+    if not console.has_padd():
+        if not PADD_BUILD.is_file():
+            print("a campaign needs padd: build it with scripts/build-padd.sh", file=sys.stderr)
+            return 1
+        send_elf(args.host, PADD_BUILD.read_bytes(), ELFLDR_PORT)
+        time.sleep(5)
+        if not console.has_padd() or not assign_pad(console.padd, screen):
+            print("padd started, but its controller dialog was not answered: 'padd assign'", file=sys.stderr)
     ranks = {}
     if args.ports and Path(args.ports).exists():
         from .ports import load_ranks
@@ -590,14 +599,17 @@ def cmd_campaign(args):
         web = WebAccess(args.host)
         print(f"a folder per game in {args.reports}: screenshot, Playden's report zip (web access, port {WEB_PORT}; "
               "the tester's own logs zip when it does not answer), issue draft")
-    capture = Capture(args.capture)
-    ui = PlaydenUI(console.padd, Screen(capture))
+    ui = PlaydenUI(console.padd, screen)
     out = Path(args.out)
+    payloads = PADD_BUILD.parent.parent / "payloads"
+    healer = Healer(console, ui, PayloadManager(args.host), folder=out / "recovery", capture=capture,
+                    df_elf=payloads / "ps5df.elf", padd_elf=PADD_BUILD)
+    deep = {} if args.plain else {"probe": True, "clip_seconds": 20.0, "audio_seconds": 3.0, "read_fps": True}
     campaign = Campaign(console, ui, capture,
-                        Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
+                        Settings(watch=args.watch, close_timeout=120, auto_close=True, **deep), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
                         keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb,
-                        reports=args.reports or None, web=web)
+                        reports=args.reports or None, web=web, healer=healer)
     from .library import read_library
     campaign.library = read_library(files)
     code = campaign.run(games, limit=args.limit)
@@ -674,6 +686,8 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
+    p.add_argument("--plain", action="store_true", help="only watch each game: no button presses, video, sound or "
+                                                        "frame rate checks")
     p.add_argument("--skip", nargs="*", metavar="FILE",
                    default=SKIP_LISTS,
                    help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "

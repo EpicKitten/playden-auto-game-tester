@@ -20,6 +20,9 @@ The `ps5` tools drive a jailbroken PS5 from this PC. AGENTS.md in this repo has 
 Use `campaign_start` for testing. It installs, tests, reports and uninstalls one game after another, and keeps going
 after this session ends. Pick one game with `only: [<Steam app>]`, or a small batch with `limit`.
 
+- A campaign starts padd itself and recovers from most failures. If it stops, read `campaign_status` and look at
+  `results/campaign/recovery/`.
+- `disk` gives real free space. Trust it over the number on Playden's Storage page.
 - `campaign_status` shows counts and the log. Don't poll it: a game takes from minutes to many hours.
 - `campaign_stop` stops before the next game. Leave the current game to finish, or its download stays paused.
 - `order: "size"` suits a nearly full console. The default tests the most played games first, which are the largest.
@@ -45,6 +48,7 @@ after each press. Never guess at buttons from memory of an older screen.
 - **Only remove games the campaign tested.** Don't uninstall the user's own games.
 - **`file_delete` is permanent.** Keep its `dry_run` default, and pass `false` only when the user asked for that
   exact delete. Show them the dry run first.
+- **`storage_clean` permanently removes data.** Use it only when the user asked. It stays away from Kept game data.
 - **`power` is only for when the user asks.** Nothing here can wake the console, and a restart loses the jailbreak
   until the user loads it again. A running game loses unsaved progress.
 - `process_kill` on kstuff or ShadowMountPlus stops games from launching until they're loaded again.

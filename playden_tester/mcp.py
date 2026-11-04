@@ -31,6 +31,12 @@ def _delete(rig, args):
     return rig.file_delete(args["path"], args.get("dry_run", True))
 
 
+def _clean(rig, args):
+    if args.get("confirm") is not True:
+        raise ValueError("storage_clean needs confirm: true, because it permanently removes data")
+    return rig.storage_clean()
+
+
 def _power(rig, args):
     if args.get("confirm") is not True:
         raise ValueError("power needs confirm: true, because a restart loses the jailbreak until it's loaded by hand")
@@ -41,8 +47,9 @@ def _power(rig, args):
 TOOLS = {
     "status": ("Which console services answer, running titles, pad state and campaign progress. Call this first.",
                schema(), lambda r, a: r.status()),
-    "start_services": ("Start ps5-web-file-manager and padd if they aren't running. padd then needs cross pressed on "
-                       "the \"Who's using this controller?\" dialog.", schema(), lambda r, a: r.start_services()),
+    "start_services": ("Start ps5-web-file-manager and padd if they aren't running, and answer the \"Who's using this "
+                       "controller?\" dialog when the capture card can see it. Starting padd turns off the user's "
+                       "DualSense.", schema(), lambda r, a: r.start_services()),
     "screenshot": ("Take a picture of the console's screen. source card (default) uses the capture card; remote uses "
                    "Remote Play, needing no card but opening a chiaki-ng window that stays open until "
                    "remote_view_stop, and showing a notification on the console.",
@@ -84,6 +91,11 @@ TOOLS = {
     "file_delete": ("Permanently delete inside the allowed folders. dry_run is true by default and only shows what "
                     "would go; pass false only when the user asked for this delete.",
                     schema(["path"], path=PATH, dry_run=BOOL), _delete),
+    "disk": ("The console's real free space per drive. Playden's own number can be far off on a nearly full disk.",
+             schema(), lambda r, a: r.disk()),
+    "storage_clean": ("Clean up Playden's Unused game settings data, which it says no game is using. It permanently "
+                      "removes data, so use it only when the user asked. Saves are not touched. Needs confirm: true.",
+                      schema(["confirm"], confirm=BOOL), _clean),
     "processes": ("List the console's processes.", schema(), lambda r, a: r.processes()),
     "process_kill": ("Stop a process by ID. Payload Manager and elfldr are refused.",
                      schema(["pid"], pid={"type": "integer"}), lambda r, a: r.process_kill(a["pid"])),

@@ -21,7 +21,9 @@ from .console import ELFLDR_PORT, LOGS, PLAYDEN, Console
 from .filemanager import FileManager
 from .padd import PORT as PADD_PORT
 from .payloadmgr import PORT as PAYLOAD_MANAGER_PORT
-from .payloadmgr import PayloadManager, send_elf
+from .payloadmgr import PayloadManager, disk_free, send_elf
+from .playden_ui import PlaydenUI
+from .recovery import assign_pad
 from .remoteplay import RemotePlayError, RemoteView, discover
 from .screen import Screen, ocr
 from .webaccess import PORT as WEB_PORT
@@ -290,9 +292,18 @@ class Rig:
                 done["padd"] = f"{elf} not built: scripts/build-padd.sh"
             else:
                 send_elf(self.host, elf.read_bytes(), ELFLDR_PORT)
-                done["padd"] = ("started; press cross once the PS5 asks who uses the controller"
-                                if self._wait_port(PADD_PORT, timeout) else f"did not open port {PADD_PORT}")
+                done["padd"] = self._pad_ready() if self._wait_port(PADD_PORT, timeout) else \
+                    f"did not open port {PADD_PORT}"
         return done
+
+    def _pad_ready(self):
+        if not self.screen:
+            return "started; press cross once the PS5 asks who uses the controller"
+        try:
+            answered = assign_pad(self.console.padd, self.screen)
+        except OSError as error:
+            return f"started, but the screen can't be read: {error}"
+        return "started and assigned" if answered else "started; the controller dialog was not seen"
 
     def _wait_port(self, port, timeout):
         deadline = time.monotonic() + timeout
@@ -302,17 +313,33 @@ class Rig:
             time.sleep(0.5)
         return False
 
+    # Storage
+
+    def disk(self):
+        """The console's real free space, from the ps5df payload. Nothing is written to its disk."""
+        elf = self.root / "build" / "payloads" / "ps5df.elf"
+        if not elf.is_file():
+            raise RigError(f"{elf} not built: scripts/build-payloads.sh")
+        return disk_free(self.host, elf.read_bytes(), ELFLDR_PORT)
+
+    def storage_clean(self):
+        """Clean up Playden's Unused game settings data, which it says no game is using. Kept game data stays."""
+        self._capture()
+        row = PlaydenUI(self.console.padd, self.screen).clean_unused()
+        self._log(f"cleaned unused game settings data ({row})")
+        return {"before": row}
+
     # Power
 
     def power(self, action, wait=45.0):
-        """Restart, enter rest mode or turn off through build/power/ps5power-<action>.elf. Whether the console went
+        """Restart, enter rest mode or turn off through build/payloads/ps5power-<action>.elf. Whether the console went
         away is the only answer there is: payloads stop with it, and a restart loses the jailbreak."""
         if action not in POWER_ACTIONS:
             raise RigError(f"power action is one of {', '.join(POWER_ACTIONS)}")
         self._quiet()
-        elf = self.root / "build" / "power" / f"ps5power-{action}.elf"
+        elf = self.root / "build" / "payloads" / f"ps5power-{action}.elf"
         if not elf.is_file():
-            raise RigError(f"{elf} not built: scripts/build-power.sh")
+            raise RigError(f"{elf} not built: scripts/build-payloads.sh")
         send_elf(self.host, elf.read_bytes(), ELFLDR_PORT)
         self._log(f"power {action}")
         deadline = time.monotonic() + wait

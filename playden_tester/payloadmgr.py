@@ -4,6 +4,7 @@ It starts when the console's jailbreak loads, so it is the way back when the fil
 """
 import json
 import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -55,6 +56,31 @@ class PayloadManager:
             raise PayloadManagerError(f"{names[pid]} must stay running")
         self._get(f"/process_kill?pid={pid}")
         return names[pid]
+
+
+def run_elf(host, elf, port, timeout=20.0):
+    """Send an ELF to elfldr and return what it prints: elfldr hands its output back on the same connection."""
+    with socket.create_connection((host, port), timeout=timeout) as link:
+        link.sendall(elf)
+        link.shutdown(socket.SHUT_WR)  # elfldr starts it once it has all of it
+        link.settimeout(timeout)
+        out = b""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            data = link.recv(4096)
+            if not data:
+                break
+            out += data
+    return out.decode("utf-8", "replace")
+
+
+def disk_free(host, elf, port):
+    """{path: {total_gb, free_gb, available_gb}} of the console's real drives, from the ps5df payload."""
+    drives = json.loads(run_elf(host, elf, port))
+    gb = 1024 ** 3
+    return {path: {"total_gb": round(d["bytes"] / gb, 1), "free_gb": round(d["free"] / gb, 1),
+                   "available_gb": round(d["available"] / gb, 1)}
+            for path, d in drives.items() if d["device"] != "tmpfs"}
 
 
 def send_elf(host, elf, port, timeout=30.0):

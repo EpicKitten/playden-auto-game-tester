@@ -234,6 +234,18 @@ this out. Release years come from Wikidata and the Steam store and are
 kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
 tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
 
+## Unattended runs
+
+A campaign starts padd itself if it isn't running, and answers the controller dialog through the capture card. That
+turns off your DualSense. When a game goes wrong it saves the screen to `results/campaign/recovery/`, restarts the file
+manager and padd if they stopped, clears PS5 error dialogs (Circle for anything that could remove something) and closes
+games left running, then goes on to the next game. After 10 recoveries in a run it stops, so someone can look.
+
+It reads the console's real free space with the `ps5df` payload before each download, when it's built. Each game also
+gets deeper checks: 20 seconds of video, kept as `start-of-game.mp4` only when the game fails; Cross presses and a stick
+move, comparing the picture before and after; the frame rate read off the performance overlay; and the sound level on
+HDMI. They go in the game's report. `--plain` leaves them out.
+
 ## Claude Code plugin
 
 The repo is also a Claude Code plugin, so an agent can run the console and its tests through tools. It uses only the
@@ -254,7 +266,8 @@ from a checkout, set `PLAYDEN_TESTER_HOME` to the checkout, which is where `data
 | Games | `games`, `launch`, `close_app`, `title_log`, `runtime_log` |
 | Files | `file_list`, `file_read`, `file_write`, `file_upload`, `file_download`, `file_delete` |
 | Payloads and processes | `processes`, `process_kill`, `payload_list`, `payload_start`, `payload_send` |
-| Power | `wake`, `power` (build `scripts/build-power.sh` first) |
+| Storage | `disk`, `storage_clean` (build `scripts/build-payloads.sh` first) |
+| Power | `wake`, `power` |
 | Campaigns | `campaign_start`, `campaign_status`, `campaign_stop`, `update_lists` |
 
 `screenshot` with `source: "remote"` needs no capture card. It uses a [chiaki-ng](https://github.com/streetpea/chiaki-ng)
@@ -267,8 +280,7 @@ manager and padd. padd goes straight to elfldr, so it starts even when the conso
 
 Limits: `session.v1` can't be reached through any tool. `file_delete` is a dry run unless told otherwise, and works
 only inside `/data/playden-tester` and the folders in `PS5_DELETE_ROOTS`; it is logged to `results/rig-actions.log`.
-Input and capture tools refuse during a campaign. The console's real free space isn't available yet, and the file
-manager can fail to delete large folders. Nothing here can wake the console, and a restart loses the jailbreak until
+Input and capture tools refuse during a campaign. The file manager can fail to delete large folders. Nothing here can wake the console, and a restart loses the jailbreak until
 it's loaded again by hand.
 
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its

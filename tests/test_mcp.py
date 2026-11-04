@@ -104,7 +104,7 @@ class RigTest(unittest.TestCase):
     def test_power_needs_its_action_and_payload(self):
         with self.assertRaises(RigError):
             self.rig.power("explode")
-        with self.assertRaisesRegex(RigError, "build-power"):
+        with self.assertRaisesRegex(RigError, "build-payloads"):
             self.rig.power("restart")
 
 

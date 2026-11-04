@@ -2,6 +2,7 @@
 Playden's UI. Needs a capture card (capture.py) and Pillow; the OCR needs Windows 10 or 11.
 """
 import json
+import re
 import subprocess
 import tempfile
 import time
@@ -71,6 +72,19 @@ def focus_box(image_path, region=None, step=2):
     if not ys:
         return None
     return left, min(ys), right, max(ys)
+
+
+def read_fps(image_path):
+    """The frame rate on the performance overlay at the top left of a game ("Fps: 30.00"), or None without one."""
+    from PIL import Image
+    image = Image.open(image_path)
+    corner = image.crop((0, 0, 420, 140)).resize((1260, 420), Image.LANCZOS)
+    with tempfile.TemporaryDirectory() as folder:
+        path = Path(folder) / "corner.png"
+        corner.save(path)
+        text = " ".join(line.text for line in ocr(path))
+    found = re.search(r"fps\W{0,3}(\d{1,3}(?:[.,]\d+)?)", text, re.I)
+    return float(found.group(1).replace(",", ".")) if found else None
 
 
 class Screen:

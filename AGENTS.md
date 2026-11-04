@@ -27,6 +27,7 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `console.py`, `filemanager.py`, `padd.py`, `webaccess.py` | The console's services |
 | `rig.py`, `mcp.py`, `payloadmgr.py`, `remoteplay.py` | Everything above as one object, with the safety rules built in; the MCP server the plugin starts; Payload Manager (8084); Remote Play through chiaki-ng |
 | `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
+| `recovery.py` | Getting the console going again unattended: services, the controller dialog, error dialogs, stuck games |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
 | `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |

@@ -4,6 +4,7 @@ Playden has no remote API for downloads or uninstalls, and doing them behind its
 wrong, so the tester uses its UI the way a player would. Every step reads the screen before pressing anything that
 changes something: a wrong focus backs out instead of pressing on.
 """
+import re
 import difflib
 import time
 
@@ -496,9 +497,8 @@ class PlaydenUI:
             time.sleep(3)
         raise UIError(f"{game.title}: no download folder {game.app} within {timeout} s of Install")
 
-    def uninstall(self, name, files, app, title=None, timeout=180):
-        """Settings > Storage > Installed games: tick the game by name and uninstall it, keeping its saves.
-        Checks the dialog names the game and the button is Uninstall, then that its files are gone."""
+    def _storage_page(self):
+        """Settings > Storage, with the focus on the page's rows."""
         self.tab(4)
         self.expect("Storage", "Downloads", "Updates", settle=1.0)
         for _ in range(3):
@@ -519,13 +519,50 @@ class PlaydenUI:
         else:
             raise UIError("could not reach Storage")
         self.press("right", gap=0.6)
+
+    def _storage_row(self, words):
+        """Move down Settings > Storage to the row whose text has words; what the row says."""
         for _ in range(6):
             lines, box, _ = self.read(0.6, (430, 190, 1840, 960))
-            if any("installedgames" in normalize(l.text) for l in Screen.inside(lines, box)):
-                break
+            inside = Screen.inside(lines, box)
+            if any(words in normalize(l.text) for l in inside):
+                return " ".join(l.text for l in inside)
             self.press("down")
-        else:
-            raise UIError("could not focus Installed games")
+        raise UIError(f"could not focus {words}")
+
+    def storage_free(self):
+        """GB free as Playden shows it, from Settings > Storage ("859.7 GB used - 77.4 GB free of 937.0 GB")."""
+        self._storage_page()
+        for line in self.read(0.6)[0]:
+            found = re.search(r"([\d.,]+)\s*GB free", line.text)
+            if found:
+                return float(found.group(1).replace(",", "."))
+        return None
+
+    def clean_unused(self):
+        """Settings > Storage > Unused game settings data > Clean up, which removes only what no game is using.
+        It presses only a focused item that says Clean up, and backs out of anything else; Kept game data, which
+        holds saves, is never opened. What the row said before."""
+        self._storage_page()
+        row = self._storage_row("unusedgamesettings")
+        self.press("cross", gap=1.5)
+        for _ in range(2):
+            lines, box, _ = self.read(0.8)
+            focused = normalize(" ".join(l.text for l in Screen.inside(lines, box)))
+            if "cleanup" not in focused or "save" in focused or "kept" in focused:
+                self.press("circle")
+                raise UIError(f"Clean up was not the focused item ({' '.join(l.text for l in lines)[:160]})")
+            self.press("cross", gap=2.5)
+            if not Screen.has(self.read(0.8)[0], "Clean up"):
+                return row
+        self.press("circle")
+        raise UIError("Clean up is still on screen after pressing it")
+
+    def uninstall(self, name, files, app, title=None, timeout=180):
+        """Settings > Storage > Installed games: tick the game by name and uninstall it, keeping its saves.
+        Checks the dialog names the game and the button is Uninstall, then that its files are gone."""
+        self._storage_page()
+        self._storage_row("installedgames")
         self.press("cross", gap=1.5)
         self.expect("Select games to uninstall", settle=0.5)
         row, last, repeats = None, None, 0

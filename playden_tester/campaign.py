@@ -36,8 +36,9 @@ def size_gb(text):
 
 class Campaign:
     def __init__(self, console, ui, capture, settings, out, meta, say=print, keep=False, max_gb=None,
-                 reserve_gb=15.0, reports=None, web=None):
+                 reserve_gb=15.0, reports=None, web=None, healer=None):
         self.console, self.ui, self.files = console, ui, console.files
+        self.healer = healer  # a recovery.Healer: real free space, and getting going again after a failure
         self.capture = capture
         # A folder per game in reports: its screenshot and Playden's report zip from web (a WebAccess).
         self.reports, self.web = Path(reports) if reports else None, web
@@ -50,6 +51,7 @@ class Campaign:
         self.state_path = self.out / "campaign.json"
         self.state = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else {}
         self.library = None  # every owned game (library cache), to predict Library search results
+        self.heals = 0
 
     def save(self):
         self.state_path.write_text(json.dumps(self.state, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -115,10 +117,17 @@ class Campaign:
         titles = self.titles()
         return sorted((e for e in entries if e["ps5_title"] in titles), key=lambda e: e.get("updated", ""))
 
+    def stuck(self):
+        """Tested games whose uninstall failed and that are still installed: tried again when room runs out."""
+        titles = self.titles()
+        return [e for e in self.state.values() if e.get("uninstall_error") and e.get("uninstalled") is not True
+                and e.get("status") not in (None, "testing", "error", "skipped", "deferred")
+                and e.get("ps5_title") in titles]
+
     def make_room(self, game, need_gb, free_gb):
         """Uninstall tested games until need_gb fits with reserve_gb left free. The free space afterwards, read
         again from the game's page; None when it cannot fit."""
-        for entry in self.evictable():
+        for entry in [*self.evictable(), *self.stuck()]:
             self.say(f"[{game.app}] {game.title}: needs {need_gb:.1f} GB, {free_gb:.1f} GB free; "
                      f"uninstalling tested {entry['title']}")
             self.ui.press("circle")
@@ -126,16 +135,23 @@ class Campaign:
             try:
                 self.ui.uninstall(self.installed_name(entry["ps5_title"], entry["title"]), self.files, entry["app"],
                                   entry["ps5_title"])
-                entry.update(uninstalled=True, evicted_for=game.app, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
+                entry.update(uninstalled=True, evicted_for=game.app, uninstall_error="",
+                             updated=time.strftime("%Y-%m-%d %H:%M:%S"))
             except UIError as error:
                 entry.update(uninstall_error=str(error))
             self.save()
             self.playden_front()
             lines = self.ui.open_game(game, self.library)
-            free_gb = free_space(lines) or free_gb
+            free_gb = self.free_now(lines) or free_gb
             if free_gb - self.reserve_gb >= need_gb:
                 return free_gb
         return None
+
+    def free_now(self, lines):
+        """GB free: the console's real number when the ps5df payload can give it, else what Playden's page says,
+        which has been far off on a nearly full disk."""
+        real = self.healer.free_gb() if self.healer else None
+        return free_space(lines) if real is None else real
 
     def download(self, game):
         """Install the game through Playden, making room first when it does not fit, and wait until it can be
@@ -158,7 +174,7 @@ class Campaign:
         if self.max_gb and gb and gb > self.max_gb:
             self.ui.press("circle")
             raise SkipGame(f"{gb:.1f} GB is over the {self.max_gb:g} GB limit")
-        free = free_space(lines)
+        free = self.free_now(lines)
         need = (gb or 0) * INSTALL_OVERHEAD
         if free is not None and free - self.reserve_gb < need:
             if self.make_room(game, need, free) is None:
@@ -295,6 +311,8 @@ class Campaign:
             (folder / old).unlink(missing_ok=True)  # from an earlier test of the same game
         try:
             copied = False
+            if result.clip and (self.out / result.clip).exists():
+                shutil.copyfile(self.out / result.clip, folder / "start-of-game.mp4")
             for taken, name in ((result.first_screenshot, SCREENSHOTS[0]), (result.screenshot, SCREENSHOTS[1])):
                 if taken and (self.out / taken).exists():
                     shutil.copyfile(self.out / taken, folder / name)
@@ -476,11 +494,16 @@ class Campaign:
                 self.say(f"[{game.app}] {game.title}: {error}")
                 self.mark(game, status="error", detail=str(error))
                 failures += 1
+                if self._heal(f"{game.title}: {error}"):
+                    failures = 0
+                    continue
                 if failures >= 3:
                     self.say("Stopping: three games in a row went wrong. Check the PS5, then run again to go on.")
                     return 3
                 continue
             if result and result.status == STUCK:
+                if self._heal(f"{game.title} could not be closed"):
+                    continue
                 self.say("Stopping: a game could not be closed.")
                 return 2
             failures = failures + 1 if result and result.status == LAUNCH_FAILED else 0
@@ -488,6 +511,13 @@ class Campaign:
                 self.say("Stopping: launches keep failing. Check that kstuff and ShadowMountPlus are loaded.")
                 return 3
         return 0
+
+    def _heal(self, reason):
+        """Try to get going again after a failure; a campaign that keeps needing this stops, so someone looks."""
+        if not self.healer or self.heals >= MAX_HEALS:
+            return False
+        self.heals += 1
+        return self.healer.heal(reason)
 
 
 class SkipGame(Exception):
@@ -505,6 +535,7 @@ class DeferGame(Exception):
 # In a report folder: 30 s after the start, just before the close (90 s), or the screen after a game that quit.
 SCREENSHOTS = ["screenshot-30s.jpg", "screenshot-90s.jpg", "screenshot.jpg"]
 INSTALL_OVERHEAD = 1.25  # the download plus preparation (bottle, shader caches) over the size Playden shows
+MAX_HEALS = 10  # recoveries in one run
 QUEUE_WAIT = 6 * 3600  # the longest a game waits in Playden's download queue before it counts as stuck
 
 
