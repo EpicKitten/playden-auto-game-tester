@@ -4,6 +4,11 @@ An app to automatically test playden game compatibility on the PS5 remotely via 
 It starts each [Playden](https://github.com/leolobato/playden-ps5) game on a jailbroken PS5, watches whether it keeps
 running, reads the game's log, and writes a result and a test report for each game.
 
+> [!NOTE]
+> This project is 100% vibecoded: all of its code, tests and documentation were written by an AI coding agent
+> (Claude, in Claude Code), directed by the maintainer. The test reports it produces are AI generated too, and say so
+> in their Versions section. Check results before relying on them or sharing them.
+
 ## Quick start
 
 The short version for testing your own Steam games. The sections after this one explain each part in detail.
