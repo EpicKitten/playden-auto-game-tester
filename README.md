@@ -249,13 +249,18 @@ from a checkout, set `PLAYDEN_TESTER_HOME` to the checkout, which is where `data
 | Area | Tools |
 | --- | --- |
 | Status and recovery | `status`, `start_services` |
-| Screen | `screenshot`, `read_screen`, `screen_check` |
+| Screen | `screenshot` (capture card or Remote Play), `remote_view_stop`, `read_screen`, `screen_check` |
 | Input | `press`, `stick`, `home` |
 | Games | `games`, `launch`, `close_app`, `title_log`, `runtime_log` |
 | Files | `file_list`, `file_read`, `file_write`, `file_upload`, `file_download`, `file_delete` |
 | Payloads and processes | `processes`, `process_kill`, `payload_list`, `payload_start`, `payload_send` |
-| Power | `power` (build `scripts/build-power.sh` first) |
+| Power | `wake`, `power` (build `scripts/build-power.sh` first) |
 | Campaigns | `campaign_start`, `campaign_status`, `campaign_stop`, `update_lists` |
+
+`screenshot` with `source: "remote"` needs no capture card. It uses a [chiaki-ng](https://github.com/streetpea/chiaki-ng)
+window, brought to the front for each picture, and the console shows a notification when it connects. Pair chiaki-ng by hand once,
+under Settings > System > Remote Play > Pair Device, or with `scripts/build-rp-get-pin.sh` and `scripts/rp-pin.py` for an
+account that isn't on PSN. chiaki-ng keeps its pairing key, and the tester never reads it.
 
 Payload Manager (port 8084) is what makes this recoverable: `start_services` uses it and elfldr to bring back the file
 manager and padd. padd goes straight to elfldr, so it starts even when the console's disk is full.

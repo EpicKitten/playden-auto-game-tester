@@ -7,6 +7,7 @@ from unittest import mock
 
 from playden_tester import mcp, rig
 from playden_tester.payloadmgr import PayloadManager, PayloadManagerError
+from playden_tester.remoteplay import RemotePlayError, RemoteView, parse_discovery
 from playden_tester.rig import Rig, RigError, check_delete, check_private, clean_path
 
 
@@ -105,6 +106,40 @@ class RigTest(unittest.TestCase):
             self.rig.power("explode")
         with self.assertRaisesRegex(RigError, "build-power"):
             self.rig.power("restart")
+
+
+class RemotePlayTest(unittest.TestCase):
+    def test_discovery_reply(self):
+        reply = b"HTTP/1.1 200 Ok\nhost-id:B40AD81D8B9B\nhost-type:PS5\nhost-name:PS5-065\nsystem-version:12200005\n"
+        self.assertEqual(parse_discovery(reply), {"state": "ready", "name": "PS5-065", "type": "PS5",
+                                                  "firmware": "12200005", "running_app": None})
+        self.assertEqual(parse_discovery(b"HTTP/1.1 620 Server Standby\nhost-type:PS5\n")["state"], "standby")
+
+    def test_wake_leaves_an_awake_console_alone(self):
+        made = offline_rig(Path(tempfile.gettempdir()))
+        made.view = mock.Mock()
+        with mock.patch.object(rig, "discover", return_value={"state": "ready", "name": "PS5-065"}):
+            self.assertEqual(made.wake()["state"], "ready")
+        made.view.start.assert_not_called()
+
+    def test_wake_refuses_a_console_that_is_off(self):
+        made = offline_rig(Path(tempfile.gettempdir()))
+        with mock.patch.object(rig, "discover", return_value=None), self.assertRaises(RemotePlayError):
+            made.wake()
+
+    def test_only_the_streams_own_window_is_grabbed(self):
+        view = RemoteView("192.0.2.1", "PS5-065")
+        view.process = mock.Mock(pid=4242)
+        with mock.patch("playden_tester.remoteplay.window_of", return_value=None) as window, \
+                mock.patch("subprocess.run") as run:
+            self.assertFalse(view._grab("x.png"))
+        window.assert_called_once_with(4242)
+        run.assert_not_called()
+
+    def test_a_closed_view_is_reported(self):
+        view = RemoteView("192.0.2.1", "PS5-065")
+        with mock.patch.object(view, "start"), self.assertRaisesRegex(RemotePlayError, "closed"):
+            view.snapshot("x.png")
 
 
 class PayloadManagerTest(unittest.TestCase):

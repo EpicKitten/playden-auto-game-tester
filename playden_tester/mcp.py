@@ -22,7 +22,7 @@ def schema(required=(), **properties):
 
 
 def _screenshot(rig, args):
-    data, path = rig.screenshot(args.get("path"))
+    data, path = rig.screenshot(args.get("path"), source=args.get("source", "card"))
     return Content([{"type": "image", "data": jpeg_text(data), "mimeType": "image/jpeg"},
                     {"type": "text", "text": f"Full frame: {path}"}])
 
@@ -43,8 +43,14 @@ TOOLS = {
                schema(), lambda r, a: r.status()),
     "start_services": ("Start ps5-web-file-manager and padd if they aren't running. padd then needs cross pressed on "
                        "the \"Who's using this controller?\" dialog.", schema(), lambda r, a: r.start_services()),
-    "screenshot": ("Take a picture of the console's screen through the capture card.",
-                   schema(path=LOCAL), _screenshot),
+    "screenshot": ("Take a picture of the console's screen. source card (default) uses the capture card; remote uses "
+                   "Remote Play, needing no card but opening a chiaki-ng window that stays open until "
+                   "remote_view_stop, and showing a notification on the console.",
+                   schema(path=LOCAL, source={"enum": ["card", "remote"]}), _screenshot),
+    "remote_view_stop": ("Close the Remote Play window and end its session.", schema(),
+                         lambda r, a: r.remote_view_stop()),
+    "wake": ("Wake the console from rest mode through Remote Play. It can't wake a console that's fully off, and "
+             "payloads may need loading again afterwards.", schema(), lambda r, a: r.wake()),
     "read_screen": ("OCR the screen: its text with positions, and Playden's focused item.",
                     schema(), lambda r, a: r.read_screen()),
     "screen_check": ("Tell whether the picture is black, still or moving.",

@@ -26,6 +26,12 @@ after this session ends. Pick one game with `only: [<Steam app>]`, or a small ba
 - Input and capture tools refuse while a campaign runs, because it needs the pad and capture card.
 - Run `update_lists` before a long campaign, so games others just reported are left out.
 
+## Seeing the screen without a capture card
+
+`screenshot` with `source: "remote"` works when the card is missing or busy. It opens a chiaki-ng window, brings it to
+the front for each picture, and the console shows a notification. The first picture takes about 10 seconds. Call `remote_view_stop` when you're done. `status` reports
+`remote_play`: `ready`, `standby` (rest mode), or null when the console is off or unreachable.
+
 ## Driving the console by hand
 
 Look, then act, then look again: `screenshot` or `read_screen`, `press`, `screenshot`. Playden's UI needs a moment

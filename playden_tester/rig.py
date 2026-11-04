@@ -22,6 +22,7 @@ from .filemanager import FileManager
 from .padd import PORT as PADD_PORT
 from .payloadmgr import PORT as PAYLOAD_MANAGER_PORT
 from .payloadmgr import PayloadManager, send_elf
+from .remoteplay import RemotePlayError, RemoteView, discover
 from .screen import Screen, ocr
 from .webaccess import PORT as WEB_PORT
 from .webaccess import WebAccess
@@ -90,12 +91,14 @@ class Rig:
         self.capture = Capture(capture) if capture else None
         self.screen = Screen(self.capture) if capture else None
         self.campaign_dir = self.root / "results" / "campaign"
+        self.view = RemoteView(host, os.environ.get("PS5_REMOTE_NAME") or "PS5")
 
     # Status
 
     def status(self):
         ports = {name: self.console.port_open(port) for port, name in SERVICES.items()}
-        facts = {"host": self.host, "services": ports, "campaign": self.campaign_status()}
+        facts = {"host": self.host, "remote_play": discover(self.host), "services": ports,
+                 "campaign": self.campaign_status()}
         if ports["ps5-web-file-manager"]:
             facts["running_titles"] = sorted(self.console.running_titles())
         if ports["padd"]:
@@ -119,17 +122,50 @@ class Rig:
             raise RigError("no capture card: set PS5_CAPTURE")
         self._quiet()
 
-    def screenshot(self, path=None, width=1280):
-        """(JPEG bytes small enough to look at, path of the full frame)."""
-        self._capture()
+    def screenshot(self, path=None, width=1280, source="card"):
+        """(JPEG bytes small enough to look at, path of the full frame), from the capture card or from Remote Play."""
         target = Path(path) if path else Path(tempfile.gettempdir()) / "playden-rig-screenshot.png"
-        self.capture.snapshot(target)
+        if source == "remote":
+            self._quiet()
+            self.view.nickname = self._remote_name()
+            self.view.snapshot(target)
+        else:
+            self._capture()
+            self.capture.snapshot(target)
         from PIL import Image
         image = Image.open(target).convert("RGB")
         image.thumbnail((width, width))
         out = io.BytesIO()
         image.save(out, "JPEG", quality=80)
         return out.getvalue(), str(target)
+
+    def _remote_name(self):
+        """chiaki-ng finds its pairing by the console's name, which the console says itself."""
+        found = discover(self.host)
+        if not found:
+            raise RemotePlayError("the console doesn't answer Remote Play: it may be off")
+        return os.environ.get("PS5_REMOTE_NAME") or found["name"]
+
+    def remote_view_stop(self):
+        """Close the Remote Play window, which ends the session."""
+        self.view.stop()
+
+    def wake(self, timeout=60.0):
+        """Wake the console from rest mode by starting a chiaki-ng stream, which uses its own pairing."""
+        found = discover(self.host)
+        if not found:
+            raise RemotePlayError("the console doesn't answer: a console that's fully off can't be woken")
+        if found["state"] == "ready":
+            return found
+        self.view.nickname = os.environ.get("PS5_REMOTE_NAME") or found["name"]
+        self.view.start()
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            found = discover(self.host)
+            if found and found["state"] == "ready":
+                return found
+            time.sleep(2.0)
+        raise RemotePlayError(f"the console is still in rest mode {timeout:.0f} s after chiaki-ng started")
 
     def read_screen(self):
         """The text on screen with its positions, and the box around the focused item."""
