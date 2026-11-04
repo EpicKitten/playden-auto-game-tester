@@ -234,6 +234,38 @@ this out. Release years come from Wikidata and the Steam store and are
 kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
 tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
 
+## Claude Code plugin
+
+The repo is also a Claude Code plugin, so an agent can run the console and its tests through tools. It uses only the
+standard library, and works from a checkout of this repo:
+
+```sh
+claude --plugin-dir /path/to/playden-auto-tester
+```
+
+Set `PS5_HOST`, and `PS5_CAPTURE` for the capture card. If the plugin is installed from a marketplace rather than run
+from a checkout, set `PLAYDEN_TESTER_HOME` to the checkout, which is where `data/` and `results/` live.
+
+| Area | Tools |
+| --- | --- |
+| Status and recovery | `status`, `start_services` |
+| Screen | `screenshot`, `read_screen`, `screen_check` |
+| Input | `press`, `stick`, `home` |
+| Games | `games`, `launch`, `close_app`, `title_log`, `runtime_log` |
+| Files | `file_list`, `file_read`, `file_write`, `file_upload`, `file_download`, `file_delete` |
+| Payloads and processes | `processes`, `process_kill`, `payload_list`, `payload_start`, `payload_send` |
+| Power | `power` (build `scripts/build-power.sh` first) |
+| Campaigns | `campaign_start`, `campaign_status`, `campaign_stop`, `update_lists` |
+
+Payload Manager (port 8084) is what makes this recoverable: `start_services` uses it and elfldr to bring back the file
+manager and padd. padd goes straight to elfldr, so it starts even when the console's disk is full.
+
+Limits: `session.v1` can't be reached through any tool. `file_delete` is a dry run unless told otherwise, and works
+only inside `/data/playden-tester` and the folders in `PS5_DELETE_ROOTS`; it is logged to `results/rig-actions.log`.
+Input and capture tools refuse during a campaign. The console's real free space isn't available yet, and the file
+manager can fail to delete large folders. Nothing here can wake the console, and a restart loses the jailbreak until
+it's loaded again by hand.
+
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
 `COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
 titled with its name) or a row in the compatibility list to

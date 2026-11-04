@@ -609,6 +609,14 @@ def cmd_campaign(args):
     return code
 
 
+def cmd_mcp(args):
+    """The MCP server the Claude Code plugin starts: everything in rig.py, as tools."""
+    from .mcp import serve
+    from .rig import Rig
+    os.chdir(os.environ.get("PLAYDEN_TESTER_HOME") or Path(__file__).resolve().parent.parent)
+    return serve(Rig(args.host, args.capture, args.port, Path.cwd()))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="playden-tester", description="Test Playden games on a jailbroken PS5 remotely.")
     parser.add_argument("--host", default=os.environ.get("PS5_HOST"), help="PS5 address (or set PS5_HOST)")
@@ -617,6 +625,8 @@ def main(argv=None):
                         help="capture card device, e.g. \"USB Capture HDMI\" (or set PS5_CAPTURE)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check the console is ready for testing").set_defaults(func=cmd_doctor)
+    sub.add_parser("mcp", help="serve the console as MCP tools on stdin and stdout (for agents; see the README)"
+                   ).set_defaults(func=cmd_mcp)
     sub.add_parser("list", help="list the Playden games on the console").set_defaults(func=cmd_list)
     p = sub.add_parser("launch", help="start one title")
     p.add_argument("title")

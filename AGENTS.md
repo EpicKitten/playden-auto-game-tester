@@ -25,6 +25,8 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `playden_ui.py` | Driving Playden's screens with padd and OCR (tabs, Library search, install, uninstall, game settings) |
 | `screen.py`, `capture.py` | Capture card frames, OCR lines, the orange focus outline |
 | `console.py`, `filemanager.py`, `padd.py`, `webaccess.py` | The console's services |
+| `rig.py`, `mcp.py`, `payloadmgr.py` | Everything above as one object, with the safety rules built in; the MCP server the plugin starts; Payload Manager (8084) |
+| `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
 | `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |
@@ -50,6 +52,8 @@ between games when you can: a stop in the middle of a download leaves it paused 
 - **Nothing is posted to Playden's tracker.** Issue drafts are written locally for the user to review.
 - **Uninstalls keep saves.** Check that "Delete saves too" stays Off; never press it.
 - **Don't uninstall the user's own games.** The campaign only evicts games it tested itself.
+- **New tools go through `rig.py`,** so they get its checks: `session.v1` is refused on every route, deletes stay
+  inside `PS5_DELETE_ROOTS` and are dry runs by default, and input waits for a campaign to end.
 - **Exact names before destructive actions.** The uninstall dialog check must stay exact apart from known OCR slips
   (®/™/©): "Escape Simulator" must never match "Escape Simulator 2".
 - Ask before pushing, opening or editing a PR.

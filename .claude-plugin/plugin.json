@@ -1,0 +1,21 @@
+{
+  "name": "playden-tester",
+  "version": "0.1.0",
+  "description": "See and control a jailbroken PS5 and test Playden games on it: screenshots, pad input, files, payloads, power and unattended test campaigns.",
+  "author": { "name": "EpicKitten" },
+  "repository": "https://github.com/EpicKitten/playden-auto-game-tester",
+  "mcpServers": {
+    "ps5": {
+      "command": "python",
+      "args": ["-u", "-m", "playden_tester", "mcp"],
+      "env": {
+        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}",
+        "PYTHONIOENCODING": "utf-8",
+        "PS5_HOST": "${PS5_HOST}",
+        "PS5_CAPTURE": "${PS5_CAPTURE:-}",
+        "PS5_DELETE_ROOTS": "${PS5_DELETE_ROOTS:-}",
+        "PLAYDEN_TESTER_HOME": "${PLAYDEN_TESTER_HOME:-}"
+      }
+    }
+  }
+}

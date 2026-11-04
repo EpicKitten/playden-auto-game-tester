@@ -463,7 +463,12 @@ class Campaign:
         todo = [g for g in games if str(g.app) not in done][:limit]
         self.say(f"{len(todo)} games to test ({len(done)} already done); results in {self.out}")
         failures = 0
+        stop = self.out / "stop"  # 'campaign_stop' asks for this: no download is left paused
         for number, game in enumerate(todo, 1):
+            if stop.exists():
+                stop.unlink()
+                self.say("Stopping: asked to stop before the next game.")
+                return 0
             self.say(f"=== {number}/{len(todo)}: {game.title} (app {game.app})")
             try:
                 result = self.run_one(game)
