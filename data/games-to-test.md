@@ -1,4 +1,4 @@
-# Games still to test (376 of 651)
+# Games still to test (347 of 651)
 
 These are the Steam games that still need testing on Playden. The list includes only Windows games with full or partial controller support, and it's in the order the tester will run them.
 
@@ -8,6 +8,8 @@ These are the Steam games that still need testing on Playden. The list includes 
 - Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar). Their online play doesn't work under Playden.
 
 **Order**
+
+Games are sorted by how much disk space they need, smallest first, so the most games get tested in the least time. The size is what the game's Steam store page asks for; games whose page doesn't say come last. Games of the same size are sorted by the rest of this section.
 
 Games with full controller support come before games with partial support, whose menus or some parts may need a mouse or keyboard. Each of those two groups is sorted first by its games' [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux through Proton. Platinum games come first, then Gold, Silver, Bronze and Borked. Games with too few reports for a rating (Pending) or no reports at all come last.
 
@@ -22,6 +24,7 @@ Within each of those groups, games that support the DualSense controller come fi
 
 **Columns**
 
+- **Size** is the disk space the game's Steam store page asks for.
 - **Year** is the first release on any platform.
 - **Steam app** is the game's ID on the Steam store: `https://store.steampowered.com/app/<ID>`.
 - **DualSense** says whether Steam lists DualSense support.
@@ -29,381 +32,352 @@ Within each of those groups, games that support the DualSense controller come fi
 - **ProtonDB** is the game's rating on ProtonDB. A dash means ProtonDB has no reports for it.
 - **Note** gives the controller support level, plus anything to watch for when retesting.
 
-| # | Game | Year | Steam app | DualSense | Console versions | ProtonDB | Note |
-|---|---|---|---|---|---|---|---|
-| 1 | Escape Simulator | 2021 | 1435790 | Yes | – | Platinum | Full controller support |
-| 2 | Escape Simulator 2 | 2025 | 2879840 | Yes | – | Platinum | Full controller support |
-| 3 | Funguys Swarm | 2026 | 3371770 | Yes | – | Platinum | Full controller support |
-| 4 | Looking Up I See Only A Ceiling | 2023 | 1742930 | Yes | – | Platinum | Full controller support |
-| 5 | The Mermaid Mask | 2026 | 1696770 | Yes | – | Platinum | Full controller support |
-| 6 | STRAFTAT | 2024 | 2386720 | DualShock only | – | Platinum | Full controller support |
-| 7 | Guacamelee! Gold Edition | 2013 | 214770 | – | – | Platinum | Full controller support |
-| 8 | Kalimba | 2014 | 324140 | – | – | Platinum | Full controller support |
-| 9 | PAC-MAN Championship Edition DX+ | 2010 | 236450 | – | – | Platinum | Full controller support |
-| 10 | Quiplash | 2015 | 351510 | – | – | Platinum | Full controller support |
-| 11 | RetroArch | 2010 | 1118310 | – | – | Platinum | Full controller support |
-| 12 | Savant - Ascent | 2013 | 259530 | – | – | Platinum | Full controller support |
-| 13 | Syder Arcade | 2013 | 252310 | – | – | Platinum | Full controller support |
-| 14 | Tabletop Simulator | 2015 | 286160 | – | – | Platinum | Full controller support |
-| 15 | Takedown: Red Sabre | 2013 | 236510 | – | – | Platinum | Full controller support |
-| 16 | LEGO® Builder's Journey | 2019 | 1544360 | Yes | Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 17 | Myst | 2020 | 1255560 | Yes | Xbox One, Xbox Series X/S | Platinum | Full controller support |
-| 18 | The World Next Door | 2019 | 755470 | DualShock only | Nintendo Switch | Platinum | Full controller support |
-| 19 | Clustertruck | 2016 | 397950 | – | Nintendo Switch | Platinum | Full controller support |
-| 20 | Gone Home | 2013 | 232430 | – | Nintendo Switch | Platinum | Full controller support |
-| 21 | Ori and the Blind Forest: Definitive Edition | 2016 | 387290 | – | Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 22 | PAC-MAN™ CHAMPIONSHIP EDITION 2 | 2016 | 441380 | – | Nintendo Switch | Platinum | Full controller support |
-| 23 | POSTAL Redux | 2016 | 401680 | – | Nintendo Switch | Platinum | Full controller support |
-| 24 | 东方夜雀食堂 - Touhou Mystia's Izakaya | 2021 | 1584090 | – | Nintendo Switch | Platinum | Full controller support |
-| 25 | Deus Ex: Game of the Year Edition | 2000 | 6910 | Yes | PlayStation 3, PlayStation 2 | Platinum | Full controller support |
-| 26 | Batman™: Arkham Origins | 2013 | 209000 | – | PlayStation 3, Xbox 360, Wii U | Platinum | Full controller support |
-| 27 | LEGO® Batman™: The Videogame | 2008 | 21000 | – | PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Wii, Nintendo DS | Platinum | Full controller support |
-| 28 | LEGO® Star Wars™: The Complete Saga | 2007 | 32440 | – | PlayStation 3, Xbox 360, Wii, Nintendo DS | Platinum | Full controller support |
-| 29 | LUFTRAUSERS | 2014 | 233150 | – | PlayStation 3, PlayStation Vita | Platinum | Full controller support |
-| 30 | Red Faction: Guerrilla Steam Edition | 2009 | 20500 | – | PlayStation 3, Xbox 360 | Platinum | Full controller support |
-| 31 | Rocketbirds: Hardboiled Chicken | 2011 | 215510 | – | PlayStation 3, PlayStation Vita | Platinum | Full controller support |
-| 32 | Sanctum 2 | 2013 | 210770 | – | PlayStation 3 | Platinum | Full controller support |
-| 33 | Tomb Raider: Anniversary | 2007 | 8000 | – | PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Wii | Platinum | Full controller support |
-| 34 | Castle Crashers | 2008 | 204360 | Yes | PlayStation 4, PlayStation 3, PlayStation Portable, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support |
-| 35 | Coral Island | 2022 | 1158160 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch 2 | Platinum | Full controller support |
-| 36 | Crawl | 2014 | 293780 | Yes | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 37 | Frog Detective 2: The Case of the Invisible Wizard | 2019 | 1047220 | Yes | PlayStation 4, PlayStation, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 38 | Frog Detective 3: Corruption at Cowboy County | 2022 | 1171320 | Yes | PlayStation 4, PlayStation, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 39 | God of War | 2018 | 1593500 | Yes | PlayStation 4, PlayStation 5 | Platinum | Full controller support |
-| 40 | Shotgun King: The Final Checkmate | 2022 | 1972440 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 41 | Tangle Tower | 2019 | 359510 | Yes | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 42 | Tomb Raider I-III Remastered Starring Lara Croft | 2024 | 2478970 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
-| 43 | Tomb Raider IV-VI Remastered | 2025 | 2525380 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 44 | Trepang2 | 2023 | 1164940 | Yes | PlayStation 5, Xbox Series X/S | Platinum | Full controller support |
-| 45 | Wanderstop | 2025 | 1299460 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
-| 46 | Wizard of Legend | 2018 | 445980 | Yes | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 47 | CloverPit | 2025 | 3314790 | DualShock only | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
-| 48 | Cult of the Lamb | 2022 | 1313140 | DualShock only | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 49 | FINAL FANTASY VII | 1997 | 3837340 | DualShock only | PlayStation 4, PlayStation, Nintendo Switch | Platinum | Full controller support |
-| 50 | FINAL FANTASY VII (2013) | 1997 | 39140 | DualShock only | PlayStation 4, PlayStation, Nintendo Switch | Platinum | Full controller support |
-| 51 | Home | 2012 | 215670 | DualShock only | PlayStation 4, PlayStation Vita, Nintendo Switch | Platinum | Full controller support |
-| 52 | PAYDAY 2 | 2013 | 218620 | DualShock only | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support |
-| 53 | Rise of the Tomb Raider | 2015 | 391220 | DualShock only | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 54 | Screencheat | 2014 | 301970 | DualShock only | PlayStation 4, Xbox One | Platinum | Full controller support |
-| 55 | SUPERHOT | 2016 | 322500 | DualShock only | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 56 | Untitled Goose Game | 2019 | 837470 | DualShock only | PlayStation 4, PlayStation 3, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 57 | Atomicrops | 2019 | 757320 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 58 | Beyond: Two Souls | 2013 | 960990 | – | PlayStation 4, PlayStation 3 | Platinum | Full controller support |
-| 59 | Borderlands 2 | 2012 | 49520 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360 | Platinum | Full controller support |
-| 60 | Bridge Constructor Portal | 2017 | 684410 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 61 | Control Ultimate Edition | 2019 | 870780 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 62 | Dead Island Definitive Edition | 2016 | 383150 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
-| 63 | Dead Island Retro Revenge | 2016 | 337360 | – | PlayStation 4 | Platinum | Full controller support |
-| 64 | Dead Island Riptide Definitive Edition | 2016 | 383180 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
-| 65 | Divinity: Original Sin Enhanced Edition | 2015 | 373420 | – | PlayStation 4 | Platinum | Full controller support |
-| 66 | Don't Starve | 2013 | 219740 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Nintendo Switch, Wii U | Platinum | Full controller support |
-| 67 | Exit the Gungeon | 2019 | 1209490 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 68 | FAITH | 2022 | 1179080 | – | PlayStation 5, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 69 | Firewatch | 2016 | 383870 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 70 | Goat Simulator | 2014 | 265930 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 71 | Grand Theft Auto III - The Definitive Edition | 2021 | 1546970 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 72 | Guacamelee! Super Turbo Championship Edition | 2013 | 275390 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch, Wii U | Platinum | Full controller support |
-| 73 | Hotline Miami 2: Wrong Number | 2015 | 274170 | – | PlayStation 4, PlayStation 3, PlayStation Vita | Platinum | Full controller support |
-| 74 | Iconoclasts | 2018 | 393520 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Platinum | Full controller support |
-| 75 | INSIDE | 2016 | 304430 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 76 | Keep Talking and Nobody Explodes | 2015 | 341800 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 77 | Kill It With Fire | 2020 | 1179210 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 78 | LEGO® Jurassic World | 2015 | 352400 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch, Wii U, Nintendo 3DS | Platinum | Full controller support |
-| 79 | LEGO® MARVEL Super Heroes 2 | 2017 | 647830 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 80 | LEGO® MARVEL's Avengers | 2015 | 405310 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Platinum | Full controller support |
-| 81 | LEGO® Star Wars™: The Skywalker Saga | 2022 | 920210 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 82 | LEGO® The Hobbit™ | 2014 | 285160 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Platinum | Full controller support |
-| 83 | Life is Strange™ | 2015 | 319630 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 84 | Metro 2033 | 2010 | 43110 | – | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 85 | Middle-earth™: Shadow of Mordor™ | 2014 | 241930 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 86 | Murder House | 2020 | 1064460 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 87 | MURDERED: SOUL SUSPECT™ | 2014 | 233290 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 88 | MXGP 2020 - The Official Motocross Videogame | 2020 | 1259800 | – | PlayStation 4, PlayStation 5 | Platinum | Full controller support |
-| 89 | Nobody Wants to Die | 2024 | 1939970 | – | PlayStation 5, Xbox Series X/S | Platinum | Full controller support |
-| 90 | OCTOPATH TRAVELER | 2018 | 921570 | – | PlayStation 4, PlayStation 5, Xbox One, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
-| 91 | OTXO | 2023 | 1608640 | – | PlayStation 4, PlayStation 5, Nintendo Switch | Platinum | Full controller support |
-| 92 | Outlast | 2013 | 238320 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
-| 93 | Outlast 2 | 2017 | 414700 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 94 | Overcooked! 2 | 2018 | 728880 | – | PlayStation 4, Xbox One, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
-| 95 | PAC-MAN 256 | 2015 | 455400 | – | PlayStation 4 | Platinum | Full controller support |
-| 96 | PAC-MAN MUSEUM+ | 2022 | 1665130 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 97 | PAC-MAN WORLD Re-PAC | 2022 | 1859470 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Full controller support |
-| 98 | Prey | 2017 | 480490 | – | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support |
-| 99 | Quake | 1996 | 2310 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo 64, Dreamcast, Sega Saturn | Platinum | Full controller support |
-| 100 | Race The Sun | 2013 | 253030 | – | PlayStation 4, PlayStation Vita, Wii U | Platinum | Full controller support |
-| 101 | RIDE 4 | 2020 | 1259980 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Full controller support |
-| 102 | Scorn | 2022 | 698670 | – | PlayStation 5, Xbox Series X/S | Platinum | Full controller support |
-| 103 | Sniper Elite V2 Remastered | 2019 | 728740 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 104 | South of Midnight | 2025 | 1934570 | – | PlayStation 5, Xbox Series X/S, Nintendo Switch 2 | Platinum | Full controller support |
-| 105 | Spelunky | 2008 | 239350 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360, Nintendo Switch | Platinum | Full controller support |
-| 106 | Spirit of the North | 2019 | 1213700 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 107 | SteamWorld Dig 2 | 2017 | 571310 | – | PlayStation 4, Nintendo Switch, Nintendo 3DS | Platinum | Full controller support |
-| 108 | Superliminal | 2019 | 1049410 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 109 | Talisman: Digital Classic Edition | 2014 | 247000 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 110 | The Case of the Golden Idol | 2022 | 1677770 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 111 | The Escapists 2 | 2017 | 641990 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 112 | The Jackbox Party Pack 4 | 2017 | 610180 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 113 | The Jackbox Party Pack 6 | 2019 | 1005300 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
-| 114 | The Stanley Parable: Ultra Deluxe | 2022 | 1703340 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
-| 115 | The Walking Dead: A New Frontier | 2016 | 536220 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 116 | The Walking Dead: Season Two | 2013 | 261030 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support |
-| 117 | The Walking Dead: The Final Season | 2018 | 866800 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 118 | The Walking Dead: The Telltale Definitive Series | 2019 | 1449690 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 119 | Tomb Raider: Legend | 2006 | 7000 | – | PlayStation 4, PlayStation 5, PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Xbox, GameCube | Platinum | Full controller support |
-| 120 | Wolfenstein II: The New Colossus | 2017 | 612880 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
-| 121 | XING: The Land Beyond | 2017 | 299400 | – | PlayStation 4 | Platinum | Full controller support |
-| 122 | ASKA | 2024 | 1898300 | Yes | – | Gold | Full controller support |
-| 123 | S.T.A.L.K.E.R.: Call of Prypiat - Enhanced Edition | 2025 | 2427430 | Yes | – | Gold | Full controller support |
-| 124 | S.T.A.L.K.E.R.: Clear Sky - Enhanced Edition | 2025 | 2427420 | Yes | – | Gold | Full controller support |
-| 125 | Windowkill | 2024 | 2726450 | Yes | – | Gold | Full controller support |
-| 126 | X4: Foundations | 2018 | 392160 | Yes | – | Gold | Full controller support |
-| 127 | METAL GEAR SOLID 2: Sons of Liberty - Master Collection Version | 2023 | 2131640 | DualShock only | – | Gold | Full controller support |
-| 128 | Audiosurf | 2008 | 12900 | – | – | Gold | Full controller support |
-| 129 | Beat Hazard | 2010 | 49600 | – | – | Gold | Full controller support |
-| 130 | BIT.TRIP RUNNER | 2010 | 63710 | – | – | Gold | Full controller support |
-| 131 | Minion Masters | 2019 | 489520 | – | – | Gold | Full controller support |
-| 132 | No Time To Explain Remastered | 2015 | 368730 | – | – | Gold | Full controller support |
-| 133 | Pummel Party | 2018 | 880940 | – | – | Gold | Full controller support |
-| 134 | Serious Sam Fusion 2017 (beta) | 2017 | 564310 | – | – | Gold | Full controller support |
-| 135 | Team Indie | 2014 | 302850 | – | – | Gold | Full controller support |
-| 136 | Vox Machinae | 2022 | 334540 | – | – | Gold | Full controller support |
-| 137 | Deus Ex: Human Revolution - Director's Cut | 2013 | 238010 | Yes | Wii U | Gold | Full controller support |
-| 138 | Disco Elysium | 2019 | 632470 | Yes | Nintendo Switch | Gold | Full controller support |
-| 139 | Grounded | 2020 | 962130 | – | Xbox One, Xbox Series X/S | Gold | Full controller support |
-| 140 | LocoCycle | 2013 | 224040 | – | Xbox One, Xbox 360 | Gold | Full controller support |
-| 141 | Savant - Ascent REMIX | 2023 | 2279330 | – | Nintendo Switch | Gold | Full controller support |
-| 142 | Shashingo: Learn Japanese with Photography | 2024 | 1632490 | – | Nintendo Switch | Gold | Full controller support |
-| 143 | State of Decay | 2013 | 241540 | – | Xbox One, Xbox 360 | Gold | Full controller support |
-| 144 | The Banner Saga 2 | 2016 | 281640 | – | Nintendo Switch | Gold | Full controller support |
-| 145 | DOOM II | 1994 | 2300 | – | PlayStation 3, Xbox 360, Nintendo Switch, Game Boy Advance | Gold | Full controller support |
-| 146 | Half Minute Hero: Super Mega Neo Climax Ultimate Boy | 2009 | 214830 | – | PlayStation Portable | Gold | Full controller support |
-| 147 | LEGO® Batman™ 2: DC Super Heroes | 2012 | 213330 | – | PlayStation 3, PlayStation Vita, PlayStation Portable, Xbox 360, Wii U, Wii, Nintendo DS | Gold | Full controller support |
-| 148 | LEGO® Star Wars™ III: The Clone Wars™ | 2011 | 32510 | – | PlayStation 3, PlayStation Portable, Xbox 360, Wii, Nintendo 3DS, Nintendo DS | Gold | Full controller support |
-| 149 | LEGO® The Lord of the Rings™ | 2012 | 214510 | – | PlayStation 3, PlayStation Vita, Xbox 360, Wii, Nintendo 3DS, Nintendo DS | Gold | Full controller support |
-| 150 | LEGOⓇ Indiana Jones™: The Original Adventures | 2008 | 32330 | – | PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Xbox, Wii, Nintendo DS | Gold | Full controller support |
-| 151 | Quake II | 1997 | 2320 | – | PlayStation, Xbox 360, Nintendo Switch, Nintendo 64, Dreamcast | Gold | Full controller support |
-| 152 | Retro/Grade | 2012 | 222660 | – | PlayStation 3 | Gold | Full controller support |
-| 153 | Serious Sam 3: BFE | 2011 | 41070 | – | PlayStation 3, Xbox 360 | Gold | Full controller support |
-| 154 | Tomb Raider: Underworld | 2008 | 8140 | – | PlayStation 3, PlayStation 2, Xbox 360, Wii, Nintendo DS | Gold | Full controller support |
-| 155 | XCOM: Enemy Unknown | 2012 | 200510 | – | PlayStation 3, Xbox 360 | Gold | Full controller support |
-| 156 | Baldur's Gate 3 | 2023 | 1086940 | Yes | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
-| 157 | Deus Ex: Mankind Divided™ | 2016 | 337000 | Yes | PlayStation 4, Xbox One | Gold | Full controller support |
-| 158 | Enshrouded | 2024 | 1203620 | Yes | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
-| 159 | HITMAN World of Assassination | 2021 | 1659040 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
-| 160 | It Takes Two | 2021 | 1426210 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
-| 161 | KINGDOM HEARTS HD 2.8 Final Chapter Prologue | 2017 | 2552440 | Yes | PlayStation 4 | Gold | Full controller support |
-| 162 | KINGDOM HEARTS III + Re Mind (DLC) | 2019 | 2552450 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
-| 163 | METAL GEAR SOLID: MASTER COLLECTION Vol.1 BONUS CONTENT | 2023 | 2306740 | Yes | PlayStation 4, PlayStation 5 | Gold | Full controller support |
-| 164 | No Man's Sky | 2016 | 275850 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
-| 165 | Shadow of the Tomb Raider | 2018 | 750920 | Yes | PlayStation 4, Xbox One | Gold | Full controller support |
-| 166 | STAR WARS Jedi: Fallen Order™ | 2019 | 1172380 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Full controller support |
-| 167 | The Long Dark | 2017 | 305620 | Yes | PlayStation 4, PlayStation 5, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 168 | Thief | 2014 | 239160 | Yes | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Full controller support |
-| 169 | UNCHARTED™: Legacy of Thieves Collection | 2022 | 1659420 | Yes | PlayStation 5 | Gold | Full controller support |
-| 170 | SUPERHOT: MIND CONTROL DELETE | 2020 | 690040 | DualShock only | PlayStation 4 | Gold | Full controller support |
-| 171 | Avowed | 2025 | 2457220 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
-| 172 | BioShock 2 Remastered | 2016 | 409720 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
-| 173 | BioShock Infinite | 2013 | 8870 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Full controller support |
-| 174 | Borderlands 3 | 2019 | 397540 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Full controller support |
-| 175 | Borderlands: The Pre-Sequel | 2014 | 261640 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Full controller support |
-| 176 | Dead Rising | 2006 | 427190 | – | PlayStation 4, Xbox One, Xbox 360, Wii | Gold | Full controller support |
-| 177 | Detroit: Become Human | 2018 | 1222140 | – | PlayStation 4 | Gold | Full controller support |
-| 178 | F1 2020 | 2020 | 1080110 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 179 | Grand Theft Auto: San Andreas - The Definitive Edition | 2021 | 1547000 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Full controller support |
-| 180 | Gravel | 2018 | 558260 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 181 | Heavy Rain | 2010 | 960910 | – | PlayStation 4, PlayStation 3 | Gold | Full controller support |
-| 182 | Injustice: Gods Among Us Ultimate Edition | 2013 | 242700 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360, Wii U | Gold | Full controller support |
-| 183 | Injustice™ 2 | 2017 | 627270 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 184 | Jazzpunk: Director's Cut | 2014 | 250260 | – | PlayStation 4 | Gold | Full controller support |
-| 185 | Just Cause 3 | 2015 | 225540 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 186 | KickBeat Steam Edition | 2013 | 255370 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Wii U | Gold | Full controller support |
-| 187 | LEGO® Batman™ 3: Beyond Gotham | 2014 | 313690 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Gold | Full controller support |
-| 188 | LEGO® City Undercover | 2013 | 578330 | – | PlayStation 4, Xbox One, Nintendo Switch, Wii U | Gold | Full controller support |
-| 189 | LEGO® STAR WARS™: The Force Awakens | 2016 | 438640 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Gold | Full controller support |
-| 190 | Mafia II: Definitive Edition | 2020 | 1030830 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 191 | Mafia III: Definitive Edition | 2016 | 360430 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 192 | Mafia: Definitive Edition | 2020 | 1030840 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 193 | Mass Effect™ Legendary Edition | 2021 | 1328670 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 194 | Mass Effect™: Andromeda Deluxe Edition | 2017 | 1238000 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 195 | Metro Exodus | 2019 | 412020 | – | PlayStation 4, PlayStation 5, Xbox One | Gold | Full controller support |
-| 196 | Middle-earth™: Shadow of War™ | 2017 | 356190 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 197 | Mortal Kombat 11 | 2019 | 976310 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Full controller support |
-| 198 | Mortal Kombat X | 2015 | 307780 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 199 | Oddsparks: An Automation Adventure | 2024 | 1817800 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
-| 200 | POSTAL 4: No Regerts | 2022 | 707030 | – | PlayStation 4 | Gold | Full controller support |
-| 201 | POSTAL: Brain Damaged | 2022 | 1359980 | – | PlayStation 4, PlayStation 5 | Gold | Full controller support |
-| 202 | Red Faction Guerrilla Re-Mars-tered | 2018 | 667720 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 203 | Resident Evil 0 | 2002 | 339340 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii, GameCube | Gold | Full controller support |
-| 204 | Resident Evil 7 Biohazard | 2017 | 418370 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
-| 205 | Resident Evil Revelations 2 | 2015 | 287290 | – | PlayStation 4, PlayStation Vita, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 206 | Retro City Rampage™ DX | 2012 | 204630 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Nintendo Switch, Wii | Gold | Full controller support |
-| 207 | Saints Row IV | 2013 | 206420 | – | PlayStation 4, PlayStation 5, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Full controller support |
-| 208 | Saints Row The Third Remastered | 2020 | 978300 | – | PlayStation 4, PlayStation 5, Xbox One | Gold | Full controller support |
-| 209 | Sleeping Dogs: Definitive Edition | 2014 | 307690 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 210 | The Banner Saga | 2014 | 237990 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
-| 211 | The Banner Saga 3 | 2018 | 485460 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
-| 212 | The Jackbox Party Pack 5 | 2018 | 774461 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 213 | The Outer Worlds | 2019 | 578650 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 214 | The Outer Worlds: Spacer's Choice Edition | 2023 | 1920490 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
-| 215 | The Swapper | 2013 | 231160 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Wii U | Gold | Full controller support |
-| 216 | Type:Rider | 2013 | 258890 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Gold | Full controller support |
-| 217 | We Happy Few | 2018 | 320240 | – | PlayStation 4, Xbox One | Gold | Full controller support |
-| 218 | Worms W.M.D | 2016 | 327030 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
-| 219 | Metro Exodus Enhanced Edition | 2020 | 1449560 | – | – | Silver | Full controller support |
-| 220 | Wanderlust: Rebirth | 2011 | 211580 | – | – | Silver | Full controller support |
-| 221 | Arma: Cold War Assault Remastered | 2001 | 65790 | Yes | Xbox | Silver | Full controller support |
-| 222 | Cthulhu Saves the World | 2010 | 107310 | – | Xbox 360 | Silver | Full controller support |
-| 223 | Dead Rising 3 | 2013 | 265550 | – | Xbox One | Silver | Full controller support |
-| 224 | Ms. Splosion Man | 2011 | 105420 | – | Xbox 360, Nintendo Switch | Silver | Full controller support |
-| 225 | Duke Nukem Forever | 2011 | 57900 | – | PlayStation 3, Xbox 360 | Silver | Full controller support |
-| 226 | Lara Croft and the Guardian of Light | 2010 | 35130 | – | PlayStation 3, PlayStation Portable, Xbox 360 | Silver | Full controller support |
-| 227 | Giana Sisters: Twisted Dreams | 2012 | 223220 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii U | Silver | Full controller support |
-| 228 | Saints Row: Gat out of Hell | 2015 | 301910 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Silver | Full controller support |
-| 229 | The Bridge | 2013 | 204240 | – | PlayStation 4, Nintendo Switch, Wii U | Silver | Full controller support |
-| 230 | UNO | 2006 | 470220 | – | PlayStation 4, PlayStation 3, Nintendo Switch, Wii | Silver | Full controller support |
-| 231 | Call of Duty®: Modern Warfare® III | 2023 | 3595270 | – | – | Bronze | Full controller support |
-| 232 | Exo One: Prologue | 2020 | 1375530 | – | – | Bronze | Full controller support |
-| 233 | Airscape: The Fall of Gravity | 2015 | 317250 | – | – | Pending | Full controller support; retest: could not select the library tab |
-| 234 | Beatbuddy: Tale of the Guardians | 2013 | 231040 | – | – | Pending | Full controller support |
-| 235 | Cybergeist | 2020 | 1457820 | – | – | – | Full controller support |
-| 236 | Full Bore | 2014 | 264060 | – | – | Pending | Full controller support |
-| 237 | Ghostly Matter | 2018 | 800240 | – | – | Pending | Full controller support |
-| 238 | Grow Big (or Go Home) | 2020 | 1476080 | – | – | – | Full controller support |
-| 239 | Haos | 2021 | 1681380 | – | – | – | Full controller support |
-| 240 | Midnight Ramen | 2024 | 2543030 | – | – | Pending | Full controller support |
-| 241 | Orborun | 2014 | 308580 | – | – | Pending | Full controller support |
-| 242 | Room of Depression | 2023 | 2056340 | – | – | Pending | Full controller support |
-| 243 | Rune Break | 2023 | 2100040 | – | – | – | Full controller support |
-| 244 | Snakenpon | 2020 | 1452300 | – | – | – | Full controller support |
-| 245 | Xploquest 3 | 2023 | 2267770 | – | – | – | Full controller support |
-| 246 | Before the Echo | 2011 | 200910 | – | Xbox 360 | Pending | Full controller support |
-| 247 | Tiny Barbarian DX | 2013 | 253350 | – | Nintendo Switch | Pending | Full controller support |
-| 248 | Monster Energy Supercross - The Official Videogame 6 | 2023 | 2058750 | Yes | PlayStation 5, Xbox One, Xbox Series X/S | Pending | Full controller support |
-| 249 | STARWHAL | 2014 | 263020 | – | PlayStation 4, PlayStation 3, Xbox One, Wii U | Pending | Full controller support |
-| 250 | The Assembly | 2016 | 373650 | – | PlayStation 4 | Pending | Full controller support |
-| 251 | Maximum Action | 2018 | 853770 | Yes | – | Platinum | Partial controller support |
-| 252 | Codename CURE | 2017 | 355180 | – | – | Platinum | Partial controller support |
-| 253 | Euro Truck Simulator | 2008 | 232010 | – | – | Platinum | Partial controller support |
-| 254 | FINAL FANTASY | 2021 | 1173770 | – | – | Platinum | Partial controller support |
-| 255 | FINAL FANTASY II | 2021 | 1173780 | – | – | Platinum | Partial controller support |
-| 256 | FINAL FANTASY V | 2021 | 1173810 | – | – | Platinum | Partial controller support |
-| 257 | Gear Up | 2015 | 214420 | – | – | Platinum | Partial controller support |
-| 258 | Getting Over It with Bennett Foddy | 2017 | 240720 | – | – | Platinum | Partial controller support |
-| 259 | Noita | 2019 | 881100 | – | – | Platinum | Partial controller support |
-| 260 | Puppet Master: The Game | 2023 | 1757610 | – | – | Platinum | Partial controller support |
-| 261 | Starseed Pilgrim | 2013 | 230980 | – | – | Platinum | Partial controller support |
-| 262 | The Bard's Tale Trilogy | 2018 | 843260 | – | – | Platinum | Partial controller support |
-| 263 | Trackmania | 2020 | 2225070 | – | – | Platinum | Partial controller support |
-| 264 | Turbo Dismount™ | 2014 | 263760 | – | – | Platinum | Partial controller support |
-| 265 | Buckshot Roulette | 2023 | 2835570 | Yes | Xbox One, Xbox Series X/S | Platinum | Partial controller support |
-| 266 | Guts and Glory | 2018 | 537340 | – | Nintendo Switch | Platinum | Partial controller support |
-| 267 | Hammerwatch | 2013 | 239070 | – | Nintendo Switch | Platinum | Partial controller support |
-| 268 | Iron Lung | 2022 | 1846170 | – | Nintendo Switch | Platinum | Partial controller support |
-| 269 | Serious Sam II | 2005 | 204340 | – | Xbox | Platinum | Partial controller support |
-| 270 | Space Warlord Organ Trading Simulator | 2021 | 1507780 | – | Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
-| 271 | Tokyo School Life | 2015 | 320760 | – | Nintendo Switch | Platinum | Partial controller support |
-| 272 | Resident Evil 3 Nemesis (1999) | 1999 | 4249120 | Yes | PlayStation 3, PlayStation, GameCube, Dreamcast | Platinum | Partial controller support |
-| 273 | Alice: Madness Returns | 2011 | 19680 | – | PlayStation 3, Xbox 360 | Platinum | Partial controller support |
-| 274 | Dead Space™ 2 | 2011 | 47780 | – | PlayStation 3, Xbox 360 | Platinum | Partial controller support |
-| 275 | Dustforce DX | 2012 | 65300 | – | PlayStation 3, PlayStation Vita, Xbox 360 | Platinum | Partial controller support |
-| 276 | Need For Speed: Hot Pursuit | 2010 | 47870 | – | PlayStation 3, Xbox 360, Wii | Platinum | Partial controller support |
-| 277 | Cuisineer | 2023 | 1963570 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
-| 278 | Atari 50: The Anniversary Celebration | 2022 | 1919470 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
-| 279 | DEEMO -Reborn- | 2020 | 1282210 | – | PlayStation 4 | Platinum | Partial controller support |
-| 280 | Dishonored | 2012 | 205100 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Partial controller support |
-| 281 | DOOM | 2016 | 379720 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Partial controller support |
-| 282 | FINAL FANTASY III | 2021 | 1173790 | – | PlayStation 4, Nintendo Switch | Platinum | Partial controller support |
-| 283 | FINAL FANTASY VI | 2022 | 1173820 | – | PlayStation 4, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
-| 284 | Golf With Your Friends | 2016 | 431240 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
-| 285 | Hard Reset Extended Edition | 2011 | 98400 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
-| 286 | Kerbal Space Program | 2015 | 220200 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Partial controller support |
-| 287 | MechWarrior 5: Mercenaries | 2019 | 784080 | – | PlayStation 4, PlayStation 5 | Platinum | Partial controller support |
-| 288 | Mutant Mudds Deluxe | 2012 | 247370 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Nintendo 3DS | Platinum | Partial controller support |
-| 289 | Phoenix Wright: Ace Attorney Trilogy | 2012 | 787480 | – | PlayStation 4, Xbox One, Nintendo Switch, Nintendo 3DS | Platinum | Partial controller support |
-| 290 | Plague Inc: Evolved | 2014 | 246620 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Partial controller support |
-| 291 | Q.U.B.E: Director's Cut | 2011 | 239430 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Wii U | Platinum | Partial controller support |
-| 292 | System Shock | 2023 | 482400 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Partial controller support |
-| 293 | Sébastien Loeb Rally EVO | 2016 | 355060 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
-| 294 | Wolfenstein: The New Order | 2014 | 201810 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Partial controller support |
-| 295 | Wolfenstein: The Old Blood | 2015 | 350080 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
-| 296 | REKA | 2024 | 1737870 | Yes | – | Gold | Partial controller support |
-| 297 | Blade Symphony | 2013 | 225600 | – | – | Gold | Partial controller support |
-| 298 | Chained Together | 2024 | 2567870 | – | – | Gold | Partial controller support |
-| 299 | DCS World Steam Edition | 2008 | 223750 | – | – | Gold | Partial controller support |
-| 300 | DeathSpank: Thongs of Virtue | 2010 | 18050 | – | – | Gold | Partial controller support |
-| 301 | GTFO | 2021 | 493520 | – | – | Gold | Partial controller support |
-| 302 | Heavy Bullets | 2014 | 297120 | – | – | Gold | Partial controller support |
-| 303 | HOLE | 2024 | 2971610 | – | – | Gold | Partial controller support |
-| 304 | Lost in Vivo | 2018 | 963710 | – | – | Gold | Partial controller support |
-| 305 | Offspring Fling! | 2012 | 211360 | – | – | Gold | Partial controller support |
-| 306 | Prey: Typhon Hunter | 2018 | 741820 | – | – | Gold | Partial controller support |
-| 307 | STAR WARS™ - X-Wing Alliance™ | 1999 | 361670 | – | – | Gold | Partial controller support |
-| 308 | STAR WARS™ - X-Wing Special Edition | 1993 | 354430 | – | – | Gold | Partial controller support |
-| 309 | STAR WARS™ Jedi Knight - Mysteries of the Sith™ | 1998 | 32390 | – | – | Gold | Partial controller support |
-| 310 | STAR WARS™ Jedi Knight: Dark Forces II | 1997 | 32380 | – | – | Gold | Partial controller support |
-| 311 | STAR WARS™ X-Wing vs TIE Fighter - Balance of Power Campaigns™ | 1997 | 361690 | – | – | Gold | Partial controller support |
-| 312 | STAR WARS™: TIE Fighter Special Edition | 1994 | 355250 | – | – | Gold | Partial controller support |
-| 313 | The Bard's Tale IV: Director's Cut | 2019 | 1091980 | – | – | Gold | Partial controller support |
-| 314 | Unfortunate Spacemen | 2016 | 408900 | – | – | Gold | Partial controller support |
-| 315 | The Last Remnant™ | 2008 | 23310 | – | Xbox 360 | Gold | Partial controller support |
-| 316 | The Witcher 2: Assassins of Kings Enhanced Edition | 2011 | 20920 | – | Xbox One, Xbox 360 | Gold | Partial controller support |
-| 317 | Assassin's Creed™: Director's Cut Edition | 2007 | 15100 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 318 | Borderlands Game of the Year | 2009 | 8980 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 319 | Crysis 2 - Maximum Edition | 2011 | 108800 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 320 | DOOM 3 | 2012 | 208200 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 321 | Fallout 3 | 2008 | 22300 | – | PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
-| 322 | Mafia II (Classic) | 2010 | 50130 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 323 | Risen 2: Dark Waters | 2012 | 40390 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 324 | STAR WARS™ Starfighter™ | 2001 | 32350 | – | PlayStation 2, Xbox | Gold | Partial controller support |
-| 325 | Turbo Overkill | 2022 | 1328350 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Partial controller support |
-| 326 | Assassin’s Creed® III | 2012 | 208480 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii U | Gold | Partial controller support |
-| 327 | Assetto Corsa | 2013 | 244210 | – | PlayStation 4 | Gold | Partial controller support |
-| 328 | Borderlands Game of the Year Enhanced | 2019 | 729040 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 329 | Car Mechanic Simulator 2018 | 2017 | 645630 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
-| 330 | Dead Rising 2: Off the Record | 2011 | 45770 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
-| 331 | Dead Rising® 2 | 2010 | 45740 | – | PlayStation 4, PlayStation 3, Xbox 360 | Gold | Partial controller support |
-| 332 | Dungeon of the ENDLESS™ | 2014 | 249050 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
-| 333 | Elite Dangerous | 2014 | 359320 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Partial controller support |
-| 334 | Far Cry® 4 | 2014 | 298110 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
-| 335 | Far Cry® New Dawn | 2019 | 939960 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 336 | Ghostrunner | 2020 | 1139900 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Partial controller support |
-| 337 | GWENT: The Witcher Card Game | 2018 | 1284410 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 338 | Hitman: Absolution™ | 2012 | 203140 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Partial controller support |
-| 339 | L.A. Noire | 2011 | 110800 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Partial controller support |
-| 340 | Obduction | 2016 | 306760 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 341 | Red Dead Redemption 2 | 2018 | 1174180 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 342 | Risk of Rain (2013) | 2013 | 248820 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Gold | Partial controller support |
-| 343 | Rocksmith® 2014 Edition REMASTERED LEARN & PLAY | 2013 | 221680 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
-| 344 | South Park™: The Fractured But Whole™ | 2017 | 488790 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Partial controller support |
-| 345 | Space Engineers | 2019 | 244850 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 346 | STAR WARS™ Jedi Knight - Jedi Academy™ | 2003 | 6020 | – | PlayStation 4, Xbox, Nintendo Switch | Gold | Partial controller support |
-| 347 | STAR WARS™ Jedi Knight II - Jedi Outcast™ | 2002 | 6030 | – | PlayStation 4, Xbox, GameCube | Gold | Partial controller support |
-| 348 | The Elder Scrolls V: Skyrim | 2011 | 72850 | – | PlayStation 4, PlayStation 5, PlayStation 3, Xbox One, Xbox Series X/S, Xbox 360, Nintendo Switch | Gold | Partial controller support |
-| 349 | This War of Mine | 2014 | 282070 | – | PlayStation 4 | Gold | Partial controller support |
-| 350 | Tom Clancy's Ghost Recon® Wildlands | 2017 | 460930 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
-| 351 | Totally Accurate Battle Simulator | 2018 | 508440 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
-| 352 | Watch_Dogs™ | 2014 | 243470 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Wii U | Gold | Partial controller support |
-| 353 | Wolfenstein: Youngblood | 2019 | 1056960 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Partial controller support |
-| 354 | ARMA 2 | 2009 | 33910 | – | – | Silver | Partial controller support |
-| 355 | DeathSpank | 2010 | 18040 | – | – | Silver | Partial controller support |
-| 356 | Microsoft Flight Simulator X: Steam Edition | 2006 | 314160 | – | – | Silver | Partial controller support |
-| 357 | Nexuiz | 2012 | 96800 | – | – | Silver | Partial controller support |
-| 358 | Serious Sam Classics: Revolution | 2014 | 227780 | – | – | Silver | Partial controller support |
-| 359 | Serious Sam HD: The First Encounter | 2009 | 41000 | – | – | Silver | Partial controller support |
-| 360 | STAR WARS™: Rebel Assault I + II | 1996 | 456540 | – | – | Silver | Partial controller support |
-| 361 | STAR WARS™: Rogue Squadron 3D | 1998 | 455910 | – | Nintendo 64 | Silver | Partial controller support |
-| 362 | Tom Clancy's Splinter Cell Conviction™ | 2010 | 33220 | – | Xbox One, Xbox 360 | Silver | Partial controller support |
-| 363 | Resident Evil (1996) | 1996 | 4249100 | Yes | PlayStation, Nintendo DS, Sega Saturn | Silver | Partial controller support |
-| 364 | Resident Evil 2 (1998) | 1998 | 4249110 | Yes | PlayStation, GameCube, Nintendo 64, Dreamcast | Silver | Partial controller support |
-| 365 | F.E.A.R. 3 | 2011 | 21100 | – | PlayStation 3, Xbox 360 | Silver | Partial controller support |
-| 366 | Bongo Cat | 2025 | 3419430 | Yes | – | Bronze | Partial controller support |
-| 367 | Anarchy Arcade | 2014 | 266430 | – | – | Bronze | Partial controller support |
-| 368 | Ghosts of Hollow Creek | 2022 | 1910180 | – | – | – | Partial controller support |
-| 369 | Noctropolis | 1994 | 377070 | – | – | Pending | Partial controller support |
-| 370 | Now you can't see me | 2021 | 1644200 | – | – | – | Partial controller support |
-| 371 | Planet Stronghold | 2011 | 291050 | – | – | – | Partial controller support |
-| 372 | Ragdoll Runners | 2016 | 404820 | – | – | – | Partial controller support |
-| 373 | Sneaky Kitten | 2021 | 1408480 | – | – | – | Partial controller support |
-| 374 | The Rainsdowne Players | 2018 | 802930 | – | Nintendo Switch | – | Partial controller support |
-| 375 | Element4l | 2013 | 235820 | – | PlayStation Vita | Pending | Partial controller support |
-| 376 | Paranautical Activity: Deluxe Atonement Edition | 2014 | 250580 | – | PlayStation 4, Nintendo Switch | Pending | Partial controller support |
+| # | Game | Size | Year | Steam app | DualSense | Console versions | ProtonDB | Note |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Wanderlust: Rebirth | 30 MB | 2011 | 211580 | – | – | Silver | Full controller support |
+| 2 | Starseed Pilgrim | 30 MB | 2013 | 230980 | – | – | Platinum | Partial controller support |
+| 3 | Ragdoll Runners | 35 MB | 2016 | 404820 | – | – | – | Partial controller support |
+| 4 | Retro City Rampage™ DX | 40 MB | 2012 | 204630 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Nintendo Switch, Wii | Gold | Full controller support |
+| 5 | Home | 50 MB | 2012 | 215670 | DualShock only | PlayStation 4, PlayStation Vita, Nintendo Switch | Platinum | Full controller support; retest: Home: no download folder 215670 within 120 s of Install |
+| 6 | Shotgun King: The Final Checkmate | 80 MB | 2022 | 1972440 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 7 | Windowkill | 80 MB | 2024 | 2726450 | Yes | – | Gold | Full controller support |
+| 8 | Offspring Fling! | 95 MB | 2012 | 211360 | – | – | Gold | Partial controller support |
+| 9 | PAC-MAN 256 | 100 MB | 2015 | 455400 | – | PlayStation 4 | Platinum | Full controller support |
+| 10 | BIT.TRIP RUNNER | 100 MB | 2010 | 63710 | – | – | Gold | Full controller support |
+| 11 | Bongo Cat | 100 MB | 2025 | 3419430 | Yes | – | Bronze | Partial controller support |
+| 12 | Risk of Rain (2013) | 130 MB | 2013 | 248820 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Gold | Partial controller support |
+| 13 | Race The Sun | 150 MB | 2013 | 253030 | – | PlayStation 4, PlayStation Vita, Wii U | Platinum | Full controller support |
+| 14 | Tiny Barbarian DX | 150 MB | 2013 | 253350 | – | Nintendo Switch | Pending | Full controller support |
+| 15 | STAR WARS™: Rogue Squadron 3D | 168 MB | 1998 | 455910 | – | Nintendo 64 | Silver | Partial controller support |
+| 16 | Bridge Constructor Portal | 200 MB | 2017 | 684410 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 17 | Spelunky | 200 MB | 2008 | 239350 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360, Nintendo Switch | Platinum | Full controller support |
+| 18 | Iron Lung | 200 MB | 2022 | 1846170 | – | Nintendo Switch | Platinum | Partial controller support |
+| 19 | Mutant Mudds Deluxe | 200 MB | 2012 | 247370 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Nintendo 3DS | Platinum | Partial controller support |
+| 20 | The Rainsdowne Players | 200 MB | 2018 | 802930 | – | Nintendo Switch | – | Partial controller support |
+| 21 | STAR WARS™ - X-Wing Special Edition | 216 MB | 1993 | 354430 | – | – | Gold | Partial controller support |
+| 22 | Before the Echo | 250 MB | 2011 | 200910 | – | Xbox 360 | Pending | Full controller support |
+| 23 | Beat Hazard | 256 MB | 2010 | 49600 | – | – | Gold | Full controller support |
+| 24 | Savant - Ascent REMIX | 300 MB | 2023 | 2279330 | – | Nintendo Switch | Gold | Full controller support |
+| 25 | Retro/Grade | 300 MB | 2012 | 222660 | – | PlayStation 3 | Gold | Full controller support |
+| 26 | Full Bore | 300 MB | 2014 | 264060 | – | – | Pending | Full controller support |
+| 27 | Turbo Dismount™ | 300 MB | 2014 | 263760 | – | – | Platinum | Partial controller support |
+| 28 | Hammerwatch | 300 MB | 2013 | 239070 | – | Nintendo Switch | Platinum | Partial controller support |
+| 29 | Heavy Bullets | 300 MB | 2014 | 297120 | – | – | Gold | Partial controller support |
+| 30 | Paranautical Activity: Deluxe Atonement Edition | 300 MB | 2014 | 250580 | – | PlayStation 4, Nintendo Switch | Pending | Partial controller support |
+| 31 | SteamWorld Dig 2 | 350 MB | 2017 | 571310 | – | PlayStation 4, Nintendo Switch, Nintendo 3DS | Platinum | Full controller support |
+| 32 | Crawl | 400 MB | 2014 | 293780 | Yes | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 33 | The Bridge | 400 MB | 2013 | 204240 | – | PlayStation 4, Nintendo Switch, Wii U | Silver | Full controller support |
+| 34 | Dustforce DX | 400 MB | 2012 | 65300 | – | PlayStation 3, PlayStation Vita, Xbox 360 | Platinum | Partial controller support |
+| 35 | STAR WARS™ Jedi Knight - Mysteries of the Sith™ | 400 MB | 1998 | 32390 | – | – | Gold | Partial controller support |
+| 36 | STAR WARS™: TIE Fighter Special Edition | 406 MB | 1994 | 355250 | – | – | Gold | Partial controller support |
+| 37 | STAR WARS™ X-Wing vs TIE Fighter - Balance of Power Campaigns™ | 487 MB | 1997 | 361690 | – | – | Gold | Partial controller support |
+| 38 | Frog Detective 2: The Case of the Invisible Wizard | 500 MB | 2019 | 1047220 | Yes | PlayStation 4, PlayStation, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 39 | Frog Detective 3: Corruption at Cowboy County | 500 MB | 2022 | 1171320 | Yes | PlayStation 4, PlayStation, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 40 | Don't Starve | 500 MB | 2013 | 219740 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Nintendo Switch, Wii U | Platinum | Full controller support |
+| 41 | Exit the Gungeon | 500 MB | 2019 | 1209490 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
+| 42 | Iconoclasts | 500 MB | 2018 | 393520 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Platinum | Full controller support |
+| 43 | Type:Rider | 500 MB | 2013 | 258890 | – | PlayStation 4, PlayStation Vita, Nintendo Switch | Gold | Full controller support |
+| 44 | Airscape: The Fall of Gravity | 500 MB | 2015 | 317250 | – | – | Pending | Full controller support; retest: could not select the library tab |
+| 45 | Cybergeist | 500 MB | 2020 | 1457820 | – | – | – | Full controller support |
+| 46 | Ghostly Matter | 500 MB | 2018 | 800240 | – | – | Pending | Full controller support |
+| 47 | Snakenpon | 500 MB | 2020 | 1452300 | – | – | – | Full controller support |
+| 48 | Buckshot Roulette | 500 MB | 2023 | 2835570 | Yes | Xbox One, Xbox Series X/S | Platinum | Partial controller support |
+| 49 | Plague Inc: Evolved | 500 MB | 2014 | 246620 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Partial controller support |
+| 50 | Element4l | 500 MB | 2013 | 235820 | – | PlayStation Vita | Pending | Partial controller support |
+| 51 | Rocketbirds: Hardboiled Chicken | 501 MB | 2011 | 215510 | – | PlayStation 3, PlayStation Vita | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 52 | Castle Crashers | 512 MB | 2008 | 204360 | Yes | PlayStation 4, PlayStation 3, PlayStation Portable, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 53 | CloverPit | 512 MB | 2025 | 3314790 | DualShock only | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 54 | Haos | 512 MB | 2021 | 1681380 | – | – | – | Full controller support |
+| 55 | Tangle Tower | 550 MB | 2019 | 359510 | Yes | PlayStation 4, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 56 | Hotline Miami 2: Wrong Number | 600 MB | 2015 | 274170 | – | PlayStation 4, PlayStation 3, PlayStation Vita | Platinum | Full controller support |
+| 57 | OTXO | 600 MB | 2023 | 1608640 | – | PlayStation 4, PlayStation 5, Nintendo Switch | Platinum | Full controller support |
+| 58 | Talisman: Digital Classic Edition | 600 MB | 2014 | 247000 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 59 | Orborun | 600 MB | 2014 | 308580 | – | – | Pending | Full controller support |
+| 60 | Lost in Vivo | 600 MB | 2018 | 963710 | – | – | Gold | Partial controller support |
+| 61 | STAR WARS™ Starfighter™ | 620 MB | 2001 | 32350 | – | PlayStation 2, Xbox | Gold | Partial controller support |
+| 62 | STARWHAL | 700 MB | 2014 | 263020 | – | PlayStation 4, PlayStation 3, Xbox One, Wii U | Pending | Full controller support |
+| 63 | STAR WARS™ Jedi Knight: Dark Forces II | 700 MB | 1997 | 32380 | – | – | Gold | Partial controller support |
+| 64 | Dungeon of the ENDLESS™ | 700 MB | 2014 | 249050 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
+| 65 | Grow Big (or Go Home) | 750 MB | 2020 | 1476080 | – | – | – | Full controller support |
+| 66 | FAITH | 800 MB | 2022 | 1179080 | – | PlayStation 5, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 67 | Guacamelee! Super Turbo Championship Edition | 800 MB | 2013 | 275390 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch, Wii U | Platinum | Full controller support |
+| 68 | STAR WARS™ Jedi Knight II - Jedi Outcast™ | 800 MB | 2002 | 6030 | – | PlayStation 4, Xbox, GameCube | Gold | Partial controller support |
+| 69 | Ghosts of Hollow Creek | 800 MB | 2022 | 1910180 | – | – | – | Partial controller support |
+| 70 | Noctropolis | 800 MB | 1994 | 377070 | – | – | Pending | Partial controller support |
+| 71 | Untitled Goose Game | 830 MB | 2019 | 837470 | DualShock only | PlayStation 4, PlayStation 3, Xbox One, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 72 | STAR WARS™ - X-Wing Alliance™ | 927 MB | 1999 | 361670 | – | – | Gold | Partial controller support |
+| 73 | Wizard of Legend | 1 GB | 2018 | 445980 | Yes | PlayStation 4, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 74 | Atomicrops | 1 GB | 2019 | 757320 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 75 | Dead Island Retro Revenge | 1 GB | 2016 | 337360 | – | PlayStation 4 | Platinum | Full controller support |
+| 76 | Keep Talking and Nobody Explodes | 1 GB | 2015 | 341800 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 77 | The Jackbox Party Pack 4 | 1 GB | 2017 | 610180 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
+| 78 | Pummel Party | 1 GB | 2018 | 880940 | – | – | Gold | Full controller support |
+| 79 | METAL GEAR SOLID: MASTER COLLECTION Vol.1 BONUS CONTENT | 1 GB | 2023 | 2306740 | Yes | PlayStation 4, PlayStation 5 | Gold | Full controller support |
+| 80 | The Swapper | 1 GB | 2013 | 231160 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Wii U | Gold | Full controller support |
+| 81 | Beatbuddy: Tale of the Guardians | 1 GB | 2013 | 231040 | – | – | Pending | Full controller support |
+| 82 | Maximum Action | 1 GB | 2018 | 853770 | Yes | – | Platinum | Partial controller support |
+| 83 | FINAL FANTASY | 1 GB | 2021 | 1173770 | – | – | Platinum | Partial controller support |
+| 84 | FINAL FANTASY II | 1 GB | 2021 | 1173780 | – | – | Platinum | Partial controller support |
+| 85 | FINAL FANTASY V | 1 GB | 2021 | 1173810 | – | – | Platinum | Partial controller support |
+| 86 | Gear Up | 1 GB | 2015 | 214420 | – | – | Platinum | Partial controller support |
+| 87 | The Bard's Tale Trilogy | 1 GB | 2018 | 843260 | – | – | Platinum | Partial controller support |
+| 88 | Tokyo School Life | 1 GB | 2015 | 320760 | – | Nintendo Switch | Platinum | Partial controller support |
+| 89 | FINAL FANTASY III | 1 GB | 2021 | 1173790 | – | PlayStation 4, Nintendo Switch | Platinum | Partial controller support |
+| 90 | FINAL FANTASY VI | 1 GB | 2022 | 1173820 | – | PlayStation 4, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
+| 91 | Now you can't see me | 1 GB | 2021 | 1644200 | – | – | – | Partial controller support |
+| 92 | Q.U.B.E: Director's Cut | 1.07 GB | 2011 | 239430 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Wii U | Platinum | Partial controller support |
+| 93 | Murder House | 1.24 GB | 2020 | 1064460 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 94 | STAR WARS™ Jedi Knight - Jedi Academy™ | 1.3 GB | 2003 | 6020 | – | PlayStation 4, Xbox, Nintendo Switch | Gold | Partial controller support |
+| 95 | STAR WARS™: Rebel Assault I + II | 1.33 GB | 1996 | 456540 | – | – | Silver | Partial controller support |
+| 96 | Noita | 1.56 GB | 2019 | 881100 | – | – | Platinum | Partial controller support |
+| 97 | Screencheat | 2 GB | 2014 | 301970 | DualShock only | PlayStation 4, Xbox One | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 98 | Goat Simulator | 2 GB | 2014 | 265930 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 99 | Kill It With Fire | 2 GB | 2020 | 1179210 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 100 | The Case of the Golden Idol | 2 GB | 2022 | 1677770 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 101 | The Walking Dead: Season Two | 2 GB | 2013 | 261030 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support |
+| 102 | Shashingo: Learn Japanese with Photography | 2 GB | 2024 | 1632490 | – | Nintendo Switch | Gold | Full controller support |
+| 103 | Half Minute Hero: Super Mega Neo Climax Ultimate Boy | 2 GB | 2009 | 214830 | – | PlayStation Portable | Gold | Full controller support |
+| 104 | Jazzpunk: Director's Cut | 2 GB | 2014 | 250260 | – | PlayStation 4 | Gold | Full controller support |
+| 105 | KickBeat Steam Edition | 2 GB | 2013 | 255370 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Wii U | Gold | Full controller support |
+| 106 | Midnight Ramen | 2 GB | 2024 | 2543030 | – | – | Pending | Full controller support |
+| 107 | Room of Depression | 2 GB | 2023 | 2056340 | – | – | Pending | Full controller support |
+| 108 | Rune Break | 2 GB | 2023 | 2100040 | – | – | – | Full controller support |
+| 109 | Euro Truck Simulator | 2 GB | 2008 | 232010 | – | – | Platinum | Partial controller support |
+| 110 | Getting Over It with Bennett Foddy | 2 GB | 2017 | 240720 | – | – | Platinum | Partial controller support |
+| 111 | Space Warlord Organ Trading Simulator | 2 GB | 2021 | 1507780 | – | Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
+| 112 | DeathSpank: Thongs of Virtue | 2 GB | 2010 | 18050 | – | – | Gold | Partial controller support |
+| 113 | HOLE | 2 GB | 2024 | 2971610 | – | – | Gold | Partial controller support |
+| 114 | DeathSpank | 2 GB | 2010 | 18040 | – | – | Silver | Partial controller support |
+| 115 | Serious Sam Classics: Revolution | 2 GB | 2014 | 227780 | – | – | Silver | Partial controller support |
+| 116 | FINAL FANTASY VII (2013) | 3 GB | 1997 | 39140 | DualShock only | PlayStation 4, PlayStation, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 117 | INSIDE | 3 GB | 2016 | 304430 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 118 | Overcooked! 2 | 3 GB | 2018 | 728880 | – | PlayStation 4, Xbox One, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
+| 119 | The Jackbox Party Pack 6 | 3 GB | 2019 | 1005300 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
+| 120 | State of Decay | 3 GB | 2013 | 241540 | – | Xbox One, Xbox 360 | Gold | Full controller support |
+| 121 | The Jackbox Party Pack 5 | 3 GB | 2018 | 774461 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 122 | UNO | 3 GB | 2006 | 470220 | – | PlayStation 4, PlayStation 3, Nintendo Switch, Wii | Silver | Full controller support |
+| 123 | Trackmania | 3 GB | 2020 | 2225070 | – | – | Platinum | Partial controller support |
+| 124 | Serious Sam II | 3 GB | 2005 | 204340 | – | Xbox | Platinum | Partial controller support |
+| 125 | Kerbal Space Program | 3 GB | 2015 | 220200 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Partial controller support |
+| 126 | Phoenix Wright: Ace Attorney Trilogy | 3 GB | 2012 | 787480 | – | PlayStation 4, Xbox One, Nintendo Switch, Nintendo 3DS | Platinum | Partial controller support |
+| 127 | Nexuiz | 3 GB | 2012 | 96800 | – | – | Silver | Partial controller support |
+| 128 | Sneaky Kitten | 3 GB | 2021 | 1408480 | – | – | – | Partial controller support |
+| 129 | Giana Sisters: Twisted Dreams | 3.3 GB | 2012 | 223220 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii U | Silver | Full controller support |
+| 130 | Sanctum 2 | 4 GB | 2013 | 210770 | – | PlayStation 3 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 131 | Cult of the Lamb | 4 GB | 2022 | 1313140 | DualShock only | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 132 | SUPERHOT | 4 GB | 2016 | 322500 | DualShock only | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 133 | Firewatch | 4 GB | 2016 | 383870 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 134 | Spirit of the North | 4 GB | 2019 | 1213700 | – | PlayStation 4, Nintendo Switch | Platinum | Full controller support |
+| 135 | The Escapists 2 | 4 GB | 2017 | 641990 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 136 | The Banner Saga 2 | 4 GB | 2016 | 281640 | – | Nintendo Switch | Gold | Full controller support |
+| 137 | LEGOⓇ Indiana Jones™: The Original Adventures | 4 GB | 2008 | 32330 | – | PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Xbox, Wii, Nintendo DS | Gold | Full controller support |
+| 138 | Serious Sam 3: BFE | 4 GB | 2011 | 41070 | – | PlayStation 3, Xbox 360 | Gold | Full controller support |
+| 139 | The Banner Saga | 4 GB | 2014 | 237990 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
+| 140 | Ms. Splosion Man | 4 GB | 2011 | 105420 | – | Xbox 360, Nintendo Switch | Silver | Full controller support |
+| 141 | Resident Evil 3 Nemesis (1999) | 4 GB | 1999 | 4249120 | Yes | PlayStation 3, PlayStation, GameCube, Dreamcast | Platinum | Partial controller support |
+| 142 | Golf With Your Friends | 4 GB | 2016 | 431240 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
+| 143 | Hard Reset Extended Edition | 4 GB | 2011 | 98400 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
+| 144 | Totally Accurate Battle Simulator | 4 GB | 2018 | 508440 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
+| 145 | Resident Evil (1996) | 4 GB | 1996 | 4249100 | Yes | PlayStation, Nintendo DS, Sega Saturn | Silver | Partial controller support |
+| 146 | Resident Evil 2 (1998) | 4 GB | 1998 | 4249110 | Yes | PlayStation, GameCube, Nintendo 64, Dreamcast | Silver | Partial controller support |
+| 147 | F.E.A.R. 3 | 4.4 GB | 2011 | 21100 | – | PlayStation 3, Xbox 360 | Silver | Partial controller support |
+| 148 | Tomb Raider I-III Remastered Starring Lara Croft | 5 GB | 2024 | 2478970 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 149 | FINAL FANTASY VII | 5 GB | 1997 | 3837340 | DualShock only | PlayStation 4, PlayStation, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 150 | Grand Theft Auto III - The Definitive Edition | 5 GB | 2021 | 1546970 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 151 | Life is Strange™ | 5 GB | 2015 | 319630 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
+| 152 | OCTOPATH TRAVELER | 5 GB | 2018 | 921570 | – | PlayStation 4, PlayStation 5, Xbox One, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support |
+| 153 | Outlast | 5 GB | 2013 | 238320 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
+| 154 | The Stanley Parable: Ultra Deluxe | 5 GB | 2022 | 1703340 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 155 | Vox Machinae | 5 GB | 2022 | 334540 | – | – | Gold | Full controller support |
+| 156 | The Assembly | 5 GB | 2016 | 373650 | – | PlayStation 4 | Pending | Full controller support |
+| 157 | Blade Symphony | 5 GB | 2013 | 225600 | – | – | Gold | Partial controller support |
+| 158 | Turbo Overkill | 5 GB | 2022 | 1328350 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Partial controller support |
+| 159 | Anarchy Arcade | 5 GB | 2014 | 266430 | – | – | Bronze | Partial controller support |
+| 160 | Risen 2: Dark Waters | 5.5 GB | 2012 | 40390 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 161 | ASKA | 6 GB | 2024 | 1898300 | Yes | – | Gold | Full controller support |
+| 162 | Minion Masters | 6 GB | 2019 | 489520 | – | – | Gold | Full controller support |
+| 163 | Oddsparks: An Automation Adventure | 6 GB | 2024 | 1817800 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
+| 164 | We Happy Few | 6 GB | 2018 | 320240 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 165 | Guts and Glory | 6 GB | 2018 | 537340 | – | Nintendo Switch | Platinum | Partial controller support |
+| 166 | The Elder Scrolls V: Skyrim | 6 GB | 2011 | 72850 | – | PlayStation 4, PlayStation 5, PlayStation 3, Xbox One, Xbox Series X/S, Xbox 360, Nintendo Switch | Gold | Partial controller support |
+| 167 | The Long Dark | 7 GB | 2017 | 305620 | Yes | PlayStation 4, PlayStation 5, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 168 | Lara Croft and the Guardian of Light | 7 GB | 2010 | 35130 | – | PlayStation 3, PlayStation Portable, Xbox 360 | Silver | Full controller support |
+| 169 | Saints Row: Gat out of Hell | 7 GB | 2015 | 301910 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Silver | Full controller support |
+| 170 | Cuisineer | 7 GB | 2023 | 1963570 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
+| 171 | Unfortunate Spacemen | 7 GB | 2016 | 408900 | – | – | Gold | Partial controller support |
+| 172 | Fallout 3 | 7 GB | 2008 | 22300 | – | PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
+| 173 | Coral Island | 8 GB | 2022 | 1158160 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch 2 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 174 | The Walking Dead: A New Frontier | 8 GB | 2016 | 536220 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 175 | S.T.A.L.K.E.R.: Clear Sky - Enhanced Edition | 8 GB | 2025 | 2427420 | Yes | – | Gold | Full controller support |
+| 176 | Grounded | 8 GB | 2020 | 962130 | – | Xbox One, Xbox Series X/S | Gold | Full controller support |
+| 177 | LEGO® Star Wars™ III: The Clone Wars™ | 8 GB | 2011 | 32510 | – | PlayStation 3, PlayStation Portable, Xbox 360, Wii, Nintendo 3DS, Nintendo DS | Gold | Full controller support |
+| 178 | LEGO® The Lord of the Rings™ | 8 GB | 2012 | 214510 | – | PlayStation 3, PlayStation Vita, Xbox 360, Wii, Nintendo 3DS, Nintendo DS | Gold | Full controller support |
+| 179 | Tomb Raider: Underworld | 8 GB | 2008 | 8140 | – | PlayStation 3, PlayStation 2, Xbox 360, Wii, Nintendo DS | Gold | Full controller support |
+| 180 | Dead Rising | 8 GB | 2006 | 427190 | – | PlayStation 4, Xbox One, Xbox 360, Wii | Gold | Full controller support |
+| 181 | The Banner Saga 3 | 8 GB | 2018 | 485460 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
+| 182 | Puppet Master: The Game | 8 GB | 2023 | 1757610 | – | – | Platinum | Partial controller support |
+| 183 | Need For Speed: Hot Pursuit | 8 GB | 2010 | 47870 | – | PlayStation 3, Xbox 360, Wii | Platinum | Partial controller support |
+| 184 | Chained Together | 8 GB | 2024 | 2567870 | – | – | Gold | Partial controller support |
+| 185 | Assassin's Creed™: Director's Cut Edition | 8 GB | 2007 | 15100 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 186 | Borderlands Game of the Year | 8 GB | 2009 | 8980 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 187 | Mafia II (Classic) | 8 GB | 2010 | 50130 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 188 | Alice: Madness Returns | 8.5 GB | 2011 | 19680 | – | PlayStation 3, Xbox 360 | Platinum | Partial controller support |
+| 189 | Dead Rising 2: Off the Record | 8.5 GB | 2011 | 45770 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
+| 190 | Dead Rising® 2 | 8.5 GB | 2010 | 45740 | – | PlayStation 4, PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 191 | XING: The Land Beyond | 9 GB | 2017 | 299400 | – | PlayStation 4 | Platinum | Full controller support |
+| 192 | Codename CURE | 9 GB | 2017 | 355180 | – | – | Platinum | Partial controller support |
+| 193 | Dishonored | 9 GB | 2012 | 205100 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Partial controller support |
+| 194 | Crysis 2 - Maximum Edition | 9 GB | 2011 | 108800 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 195 | Divinity: Original Sin Enhanced Edition | 9.77 GB | 2015 | 373420 | – | PlayStation 4 | Platinum | Full controller support |
+| 196 | Dead Island Definitive Edition | 10 GB | 2016 | 383150 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
+| 197 | Dead Island Riptide Definitive Edition | 10 GB | 2016 | 383180 | – | PlayStation 4, Xbox One | Platinum | Full controller support |
+| 198 | LEGO® Jurassic World | 10 GB | 2015 | 352400 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Nintendo Switch, Wii U, Nintendo 3DS | Platinum | Full controller support |
+| 199 | LEGO® The Hobbit™ | 10 GB | 2014 | 285160 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Platinum | Full controller support |
+| 200 | PAC-MAN WORLD Re-PAC | 10 GB | 2022 | 1859470 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Full controller support |
+| 201 | S.T.A.L.K.E.R.: Call of Prypiat - Enhanced Edition | 10 GB | 2025 | 2427430 | Yes | – | Gold | Full controller support |
+| 202 | Serious Sam Fusion 2017 (beta) | 10 GB | 2017 | 564310 | – | – | Gold | Full controller support |
+| 203 | LEGO® Batman™ 2: DC Super Heroes | 10 GB | 2012 | 213330 | – | PlayStation 3, PlayStation Vita, PlayStation Portable, Xbox 360, Wii U, Wii, Nintendo DS | Gold | Full controller support |
+| 204 | LEGO® Batman™ 3: Beyond Gotham | 10 GB | 2014 | 313690 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Gold | Full controller support |
+| 205 | Saints Row IV | 10 GB | 2013 | 206420 | – | PlayStation 4, PlayStation 5, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Full controller support |
+| 206 | Duke Nukem Forever | 10 GB | 2011 | 57900 | – | PlayStation 3, Xbox 360 | Silver | Full controller support |
+| 207 | Dead Space™ 2 | 10 GB | 2011 | 47780 | – | PlayStation 3, Xbox 360 | Platinum | Partial controller support |
+| 208 | DEEMO -Reborn- | 10 GB | 2020 | 1282210 | – | PlayStation 4 | Platinum | Partial controller support |
+| 209 | System Shock | 10 GB | 2023 | 482400 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Partial controller support |
+| 210 | REKA | 10 GB | 2024 | 1737870 | Yes | – | Gold | Partial controller support |
+| 211 | ARMA 2 | 10 GB | 2009 | 33910 | – | – | Silver | Partial controller support |
+| 212 | Tom Clancy's Splinter Cell Conviction™ | 10 GB | 2010 | 33220 | – | Xbox One, Xbox 360 | Silver | Partial controller support |
+| 213 | DOOM 3 | 11 GB | 2012 | 208200 | – | PlayStation 3, Xbox 360 | Gold | Partial controller support |
+| 214 | MURDERED: SOUL SUSPECT™ | 12 GB | 2014 | 233290 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
+| 215 | Superliminal | 12 GB | 2019 | 1049410 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 216 | Exo One: Prologue | 12 GB | 2020 | 1375530 | – | – | Bronze | Full controller support |
+| 217 | Atari 50: The Anniversary Celebration | 12 GB | 2022 | 1919470 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Partial controller support |
+| 218 | Rocksmith® 2014 Edition REMASTERED LEARN & PLAY | 12 GB | 2013 | 221680 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
+| 219 | Borderlands 2 | 13 GB | 2012 | 49520 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360 | Platinum | Full controller support |
+| 220 | Borderlands: The Pre-Sequel | 13 GB | 2014 | 261640 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Full controller support |
+| 221 | Resident Evil 0 | 13 GB | 2002 | 339340 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii, GameCube | Gold | Full controller support |
+| 222 | LEGO® MARVEL's Avengers | 14 GB | 2015 | 405310 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Platinum | Full controller support |
+| 223 | LEGO® STAR WARS™: The Force Awakens | 14 GB | 2016 | 438640 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox One, Xbox 360, Wii U, Nintendo 3DS | Gold | Full controller support |
+| 224 | Red Faction: Guerrilla Steam Edition | 15 GB | 2009 | 20500 | – | PlayStation 3, Xbox 360 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 225 | Wanderstop | 15 GB | 2025 | 1299460 | Yes | PlayStation 5, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 226 | MXGP 2020 - The Official Motocross Videogame | 15 GB | 2020 | 1259800 | – | PlayStation 4, PlayStation 5 | Platinum | Full controller support |
+| 227 | Sniper Elite V2 Remastered | 15 GB | 2019 | 728740 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 228 | The Walking Dead: The Final Season | 15 GB | 2018 | 866800 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 229 | LocoCycle | 15 GB | 2013 | 224040 | – | Xbox One, Xbox 360 | Gold | Full controller support |
+| 230 | No Man's Sky | 15 GB | 2016 | 275850 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
+| 231 | Gravel | 15 GB | 2018 | 558260 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 232 | POSTAL: Brain Damaged | 15 GB | 2022 | 1359980 | – | PlayStation 4, PlayStation 5 | Gold | Full controller support |
+| 233 | GTFO | 15 GB | 2021 | 493520 | – | – | Gold | Partial controller support |
+| 234 | The Last Remnant™ | 15 GB | 2008 | 23310 | – | Xbox 360 | Gold | Partial controller support |
+| 235 | Assetto Corsa | 15 GB | 2013 | 244210 | – | PlayStation 4 | Gold | Partial controller support |
+| 236 | LEGO® MARVEL Super Heroes 2 | 16 GB | 2017 | 647830 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 237 | L.A. Noire | 16 GB | 2011 | 110800 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Partial controller support |
+| 238 | METAL GEAR SOLID 2: Sons of Liberty - Master Collection Version | 17 GB | 2023 | 2131640 | DualShock only | – | Gold | Full controller support |
+| 239 | Deus Ex: Human Revolution - Director's Cut | 17 GB | 2013 | 238010 | Yes | Wii U | Gold | Full controller support |
+| 240 | Assassin’s Creed® III | 17 GB | 2012 | 208480 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch, Wii U | Gold | Partial controller support |
+| 241 | LEGO® City Undercover | 18 GB | 2013 | 578330 | – | PlayStation 4, Xbox One, Nintendo Switch, Wii U | Gold | Full controller support |
+| 242 | Grand Theft Auto: San Andreas - The Definitive Edition | 19 GB | 2021 | 1547000 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Full controller support |
+| 243 | Prey | 20 GB | 2017 | 480490 | – | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support |
+| 244 | Disco Elysium | 20 GB | 2019 | 632470 | Yes | Nintendo Switch | Gold | Full controller support |
+| 245 | XCOM: Enemy Unknown | 20 GB | 2012 | 200510 | – | PlayStation 3, Xbox 360 | Gold | Full controller support |
+| 246 | Thief | 20 GB | 2014 | 239160 | Yes | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Full controller support |
+| 247 | BioShock Infinite | 20 GB | 2013 | 8870 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Full controller support |
+| 248 | Sleeping Dogs: Definitive Edition | 20 GB | 2014 | 307690 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 249 | Arma: Cold War Assault Remastered | 20 GB | 2001 | 65790 | Yes | Xbox | Silver | Full controller support |
+| 250 | Monster Energy Supercross - The Official Videogame 6 | 20 GB | 2023 | 2058750 | Yes | PlayStation 5, Xbox One, Xbox Series X/S | Pending | Full controller support |
+| 251 | Car Mechanic Simulator 2018 | 20 GB | 2017 | 645630 | – | PlayStation 4, Nintendo Switch | Gold | Partial controller support |
+| 252 | Obduction | 20 GB | 2016 | 306760 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 253 | South Park™: The Fractured But Whole™ | 20 GB | 2017 | 488790 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Partial controller support |
+| 254 | Injustice: Gods Among Us Ultimate Edition | 21 GB | 2013 | 242700 | – | PlayStation 4, PlayStation 3, PlayStation Vita, Xbox 360, Wii U | Gold | Full controller support |
+| 255 | Ghostrunner | 22 GB | 2020 | 1139900 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Partial controller support |
+| 256 | Resident Evil Revelations 2 | 23 GB | 2015 | 287290 | – | PlayStation 4, PlayStation Vita, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 257 | Resident Evil 7 Biohazard | 24 GB | 2017 | 418370 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
+| 258 | Hitman: Absolution™ | 24 GB | 2012 | 203140 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Gold | Partial controller support |
+| 259 | Rise of the Tomb Raider | 25 GB | 2015 | 391220 | DualShock only | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 260 | BioShock 2 Remastered | 25 GB | 2016 | 409720 | – | PlayStation 4, Nintendo Switch | Gold | Full controller support |
+| 261 | POSTAL 4: No Regerts | 25 GB | 2022 | 707030 | – | PlayStation 4 | Gold | Full controller support |
+| 262 | Saints Row The Third Remastered | 25 GB | 2020 | 978300 | – | PlayStation 4, PlayStation 5, Xbox One | Gold | Full controller support |
+| 263 | The Witcher 2: Assassins of Kings Enhanced Edition | 25 GB | 2011 | 20920 | – | Xbox One, Xbox 360 | Gold | Partial controller support |
+| 264 | Borderlands Game of the Year Enhanced | 25 GB | 2019 | 729040 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 265 | Elite Dangerous | 25 GB | 2014 | 359320 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Partial controller support |
+| 266 | Watch_Dogs™ | 25 GB | 2014 | 243470 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Wii U | Gold | Partial controller support |
+| 267 | The Bard's Tale IV: Director's Cut | 29 GB | 2019 | 1091980 | – | – | Gold | Partial controller support |
+| 268 | Nobody Wants to Die | 30 GB | 2024 | 1939970 | – | PlayStation 5, Xbox Series X/S | Platinum | Full controller support |
+| 269 | Outlast 2 | 30 GB | 2017 | 414700 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 270 | Dead Rising 3 | 30 GB | 2013 | 265550 | – | Xbox One | Silver | Full controller support |
+| 271 | Sébastien Loeb Rally EVO | 30 GB | 2016 | 355060 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
+| 272 | Far Cry® 4 | 30 GB | 2014 | 298110 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Gold | Partial controller support |
+| 273 | Far Cry® New Dawn | 30 GB | 2019 | 939960 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 274 | Microsoft Flight Simulator X: Steam Edition | 30 GB | 2006 | 314160 | – | – | Silver | Partial controller support |
+| 275 | PAYDAY 2 | 32 GB | 2013 | 218620 | DualShock only | PlayStation 4, PlayStation 3, Xbox One, Xbox 360, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 276 | Red Faction Guerrilla Re-Mars-tered | 32 GB | 2018 | 667720 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 277 | Trepang2 | 35 GB | 2023 | 1164940 | Yes | PlayStation 5, Xbox Series X/S | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 278 | X4: Foundations | 35 GB | 2018 | 392160 | Yes | – | Gold | Full controller support |
+| 279 | KINGDOM HEARTS HD 2.8 Final Chapter Prologue | 35 GB | 2017 | 2552440 | Yes | PlayStation 4 | Gold | Full controller support |
+| 280 | Heavy Rain | 35 GB | 2010 | 960910 | – | PlayStation 4, PlayStation 3 | Gold | Full controller support |
+| 281 | Space Engineers | 35 GB | 2019 | 244850 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 282 | Mortal Kombat X | 36 GB | 2015 | 307780 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 283 | Wolfenstein: The Old Blood | 38 GB | 2015 | 350080 | – | PlayStation 4, Xbox One | Platinum | Partial controller support |
+| 284 | LEGO® Star Wars™: The Skywalker Saga | 40 GB | 2022 | 920210 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 285 | Shadow of the Tomb Raider | 40 GB | 2018 | 750920 | Yes | PlayStation 4, Xbox One | Gold | Full controller support |
+| 286 | The Outer Worlds | 40 GB | 2019 | 578650 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 287 | Wolfenstein: Youngblood | 40 GB | 2019 | 1056960 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Partial controller support |
+| 288 | Control Ultimate Edition | 42 GB | 2019 | 870780 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 289 | RIDE 4 | 43 GB | 2020 | 1259980 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Platinum | Full controller support |
+| 290 | Middle-earth™: Shadow of Mordor™ | 44 GB | 2014 | 241930 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Full controller support |
+| 291 | The Walking Dead: The Telltale Definitive Series | 45 GB | 2019 | 1449690 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 292 | Deus Ex: Mankind Divided™ | 45 GB | 2016 | 337000 | Yes | PlayStation 4, Xbox One | Gold | Full controller support |
+| 293 | Beyond: Two Souls | 49 GB | 2013 | 960990 | – | PlayStation 4, PlayStation 3 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 294 | Scorn | 50 GB | 2022 | 698670 | – | PlayStation 5, Xbox Series X/S | Platinum | Full controller support |
+| 295 | It Takes Two | 50 GB | 2021 | 1426210 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
+| 296 | Mafia II: Definitive Edition | 50 GB | 2020 | 1030830 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 297 | Mafia III: Definitive Edition | 50 GB | 2016 | 360430 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 298 | Mafia: Definitive Edition | 50 GB | 2020 | 1030840 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 299 | Wolfenstein: The New Order | 50 GB | 2014 | 201810 | – | PlayStation 4, PlayStation 3, Xbox One, Xbox 360 | Platinum | Partial controller support |
+| 300 | Tom Clancy's Ghost Recon® Wildlands | 50 GB | 2017 | 460930 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 301 | Injustice™ 2 | 52 GB | 2017 | 627270 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 302 | Just Cause 3 | 54 GB | 2015 | 225540 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 303 | Wolfenstein II: The New Colossus | 55 GB | 2017 | 612880 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Full controller support |
+| 304 | STAR WARS Jedi: Fallen Order™ | 55 GB | 2019 | 1172380 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Full controller support |
+| 305 | Detroit: Become Human | 55 GB | 2018 | 1222140 | – | PlayStation 4 | Gold | Full controller support |
+| 306 | Mass Effect™: Andromeda Deluxe Edition | 55 GB | 2017 | 1238000 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 307 | DOOM | 55 GB | 2016 | 379720 | – | PlayStation 4, Xbox One, Nintendo Switch | Platinum | Partial controller support |
+| 308 | Metro Exodus | 59 GB | 2019 | 412020 | – | PlayStation 4, PlayStation 5, Xbox One | Gold | Full controller support |
+| 309 | Metro Exodus Enhanced Edition | 59 GB | 2020 | 1449560 | – | – | Silver | Full controller support |
+| 310 | South of Midnight | 60 GB | 2025 | 1934570 | – | PlayStation 5, Xbox Series X/S, Nintendo Switch 2 | Platinum | Full controller support |
+| 311 | Enshrouded | 60 GB | 2024 | 1203620 | Yes | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
+| 312 | HITMAN World of Assassination | 60 GB | 2021 | 1659040 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
+| 313 | The Outer Worlds: Spacer's Choice Edition | 62 GB | 2023 | 1920490 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
+| 314 | God of War | 70 GB | 2018 | 1593500 | Yes | PlayStation 4, PlayStation 5 | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 315 | Middle-earth™: Shadow of War™ | 70 GB | 2017 | 356190 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 316 | KINGDOM HEARTS III + Re Mind (DLC) | 75 GB | 2019 | 2552450 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo Switch 2 | Gold | Full controller support |
+| 317 | Avowed | 75 GB | 2025 | 2457220 | – | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
+| 318 | Borderlands 3 | 75 GB | 2019 | 397540 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S | Gold | Full controller support |
+| 319 | F1 2020 | 80 GB | 2020 | 1080110 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 320 | MechWarrior 5: Mercenaries | 80 GB | 2019 | 784080 | – | PlayStation 4, PlayStation 5 | Platinum | Partial controller support |
+| 321 | Mass Effect™ Legendary Edition | 120 GB | 2021 | 1328670 | – | PlayStation 4, Xbox One | Gold | Full controller support |
+| 322 | UNCHARTED™: Legacy of Thieves Collection | 126 GB | 2022 | 1659420 | Yes | PlayStation 5 | Gold | Full controller support |
+| 323 | Baldur's Gate 3 | 150 GB | 2023 | 1086940 | Yes | PlayStation 5, Xbox Series X/S | Gold | Full controller support |
+| 324 | Red Dead Redemption 2 | 150 GB | 2018 | 1174180 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 325 | DCS World Steam Edition | 200 GB | 2008 | 223750 | – | – | Gold | Partial controller support |
+| 326 | Tomb Raider: Anniversary | – | 2007 | 8000 | – | PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Wii | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 327 | Tomb Raider IV-VI Remastered | – | 2025 | 2525380 | Yes | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support; retest: search broken by the tester (Library filter); retest |
+| 328 | Metro 2033 | – | 2010 | 43110 | – | PlayStation 4, Xbox One, Xbox 360 | Platinum | Full controller support |
+| 329 | PAC-MAN MUSEUM+ | – | 2022 | 1665130 | – | PlayStation 4, Xbox One, Xbox Series X/S, Nintendo Switch | Platinum | Full controller support |
+| 330 | Quake | – | 1996 | 2310 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch, Nintendo 64, Dreamcast, Sega Saturn | Platinum | Full controller support |
+| 331 | Tomb Raider: Legend | – | 2006 | 7000 | – | PlayStation 4, PlayStation 5, PlayStation 3, PlayStation 2, PlayStation Portable, Xbox 360, Xbox, GameCube | Platinum | Full controller support |
+| 332 | Audiosurf | – | 2008 | 12900 | – | – | Gold | Full controller support |
+| 333 | No Time To Explain Remastered | – | 2015 | 368730 | – | – | Gold | Full controller support |
+| 334 | Team Indie | – | 2014 | 302850 | – | – | Gold | Full controller support |
+| 335 | DOOM II | – | 1994 | 2300 | – | PlayStation 3, Xbox 360, Nintendo Switch, Game Boy Advance | Gold | Full controller support |
+| 336 | Quake II | – | 1997 | 2320 | – | PlayStation, Xbox 360, Nintendo Switch, Nintendo 64, Dreamcast | Gold | Full controller support |
+| 337 | SUPERHOT: MIND CONTROL DELETE | – | 2020 | 690040 | DualShock only | PlayStation 4 | Gold | Full controller support |
+| 338 | Mortal Kombat 11 | – | 2019 | 976310 | – | PlayStation 4, PlayStation 5, Xbox One, Xbox Series X/S, Nintendo Switch | Gold | Full controller support |
+| 339 | Worms W.M.D | – | 2016 | 327030 | – | PlayStation 4, Xbox One, Nintendo Switch | Gold | Full controller support |
+| 340 | Cthulhu Saves the World | – | 2010 | 107310 | – | Xbox 360 | Silver | Full controller support |
+| 341 | Call of Duty®: Modern Warfare® III | – | 2023 | 3595270 | – | – | Bronze | Full controller support |
+| 342 | Xploquest 3 | – | 2023 | 2267770 | – | – | – | Full controller support |
+| 343 | Prey: Typhon Hunter | – | 2018 | 741820 | – | – | Gold | Partial controller support |
+| 344 | GWENT: The Witcher Card Game | – | 2018 | 1284410 | – | PlayStation 4, Xbox One | Gold | Partial controller support |
+| 345 | This War of Mine | – | 2014 | 282070 | – | PlayStation 4 | Gold | Partial controller support |
+| 346 | Serious Sam HD: The First Encounter | – | 2009 | 41000 | – | – | Silver | Partial controller support |
+| 347 | Planet Stronghold | – | 2011 | 291050 | – | – | – | Partial controller support |

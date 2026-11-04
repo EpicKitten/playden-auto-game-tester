@@ -52,13 +52,24 @@ def queued(button):
 def same_name(a, b):
     """The same game name, allowing only OCR slips (a letter read wrong, one dropped or added in the middle).
     A name that is the start of the other is a different game: "Half-Life" is not "Half-Life 2"."""
-    # OCR reads Playden's Q as O ("Oueue", "Ouiplash").
-    x, y = normalize(a).replace("q", "o"), normalize(b).replace("q", "o")
-    if x == y:
+    # OCR reads Playden's Q as O ("Oueue", "Ouiplash"), and ™, ® and © as letters ("BatmanTM", "LEGOO").
+    x = normalize(a).replace("q", "o")
+    if any(x == normalize(v).replace("q", "o") for v in symbol_readings(b)) or             any(normalize(v).replace("q", "o") == normalize(b).replace("q", "o") for v in symbol_readings(a)):
         return True
+    y = normalize(b).replace("q", "o")
     if not x or not y or x.startswith(y) or y.startswith(x):
         return False
+    if [c for c in x if c.isdigit()] != [c for c in y if c.isdigit()]:
+        return False  # "Sniper Elite 3" is not "Sniper Elite 4", however close the letters
     return abs(len(x) - len(y)) <= 1 and difflib.SequenceMatcher(None, x, y).ratio() >= 0.9
+
+
+def symbol_readings(name):
+    """The name with each ™, ® and © as OCR may read it: dropped, or as a letter or two."""
+    names = {name}
+    for symbol in "®™©":
+        names = {n.replace(symbol, reading) for n in names for reading in ("", "o", "r", "c", "tm")}
+    return names
 
 
 def dialog_names(lines, name):
@@ -67,10 +78,7 @@ def dialog_names(lines, name):
     text = normalize(" ".join(l.text for l in lines))
     # Exact, apart from the symbols OCR reads as a letter or drops: anything looser would let "Escape Simulator"
     # match "Escape Simulator 2" and uninstall the wrong game.
-    names = {name}
-    for symbol in "®™©":
-        names = {n.replace(symbol, reading) for n in names for reading in ("", "o", "r", "c", "tm")}
-    return any(normalize(n) + "frees" in text for n in names)
+    return any(normalize(n) + "frees" in text for n in symbol_readings(name))
 
 
 # Letters, digits and space only: the key shown as "-" typed a comma ("Half,life 2"), and the typed-text check

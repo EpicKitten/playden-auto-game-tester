@@ -34,6 +34,8 @@ under Playden.
 
 **Order**
 
+Games are sorted by how much disk space they need, smallest first, so the most games get tested in the least time. The size is what the game's Steam store page asks for; games whose page doesn't say come last. Games of the same size are sorted by the rest of this section.
+
 Games with full controller support come before games with partial support, whose menus or some parts may need a \
 mouse or keyboard. Each of those two groups is sorted first by its games' [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux \
 through Proton. Platinum games come first, then Gold, Silver, Bronze and Borked. Games with too few reports for a \
@@ -51,6 +53,7 @@ DualShock, then the rest.
 
 **Columns**
 
+- **Size** is the disk space the game's Steam store page asks for.
 - **Year** is the first release on any platform.
 - **Steam app** is the game's ID on the Steam store: `https://store.steampowered.com/app/<ID>`.
 - **DualSense** says whether Steam lists DualSense support.
@@ -147,24 +150,33 @@ def _cell(text):
     return str(text).replace("|", "\\|")
 
 
-def to_test_rows(games, years, features):
-    """The rows of data/games-to-test.json: the list's rows plus DualSense support and release years."""
+def to_test_rows(games, years, features, sizes=None):
+    """The rows of data/games-to-test.json: the list's rows plus DualSense support, release years and the disk
+    space the store says the game needs (sizes: {app: GB})."""
     rows = []
     for g in games:
         rank = pad_rank((features.get(str(g["app"])) or {}).get("categories"))
         rows.append({**g, "dualsense": DUALSENSE_FIELD.get(rank, "no"), "release_year": release_year(g["app"], years),
-                     "steam_year": ((years.get("steam") or {}).get(str(g["app"])) or {}).get("year")})
+                     "steam_year": ((years.get("steam") or {}).get(str(g["app"])) or {}).get("year"),
+                     "size_gb": (sizes or {}).get(g["app"])})
     return rows
+
+
+def size_text(gb):
+    if not gb:
+        return "–"
+    return f"{gb * 1024:.0f} MB" if gb < 1 else f"{gb:g} GB"
 
 
 def to_test_markdown(rows, total, ports, tiers, state):
     """data/games-to-test.md. rows are in campaign order; ports is {app: [console names]}, tiers {app: tier}."""
     lines = [f"# Games still to test ({len(rows)} of {total})", "", TO_TEST_INTRO, "",
-             "| # | Game | Year | Steam app | DualSense | Console versions | ProtonDB | Note |",
-             "|---|---|---|---|---|---|---|---|"]
+             "| # | Game | Size | Year | Steam app | DualSense | Console versions | ProtonDB | Note |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for number, row in enumerate(rows, 1):
         tier = tiers.get(row["app"]) or "unknown"
-        lines.append(f"| {number} | {_cell(row['title'].strip())} | {row.get('release_year') or '–'} | {row['app']} | "
+        lines.append(f"| {number} | {_cell(row['title'].strip())} | {size_text(row.get('size_gb'))} | "
+                     f"{row.get('release_year') or '–'} | {row['app']} | "
                      f"{PADS.get(_pad(row), '–')} | {', '.join(ports.get(row['app']) or []) or '–'} | "
                      f"{'–' if tier == 'unknown' else tier.capitalize()} | {note(row, state)} |")
     return "\n".join(lines) + "\n"

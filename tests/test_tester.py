@@ -544,6 +544,16 @@ class PrepareStateTest(unittest.TestCase):
         self.assertEqual(prepare_state(log, 23867)[0], "failed")
         self.assertEqual(prepare_state(log, 70), (None, ""))
 
+    def test_same_name_allows_ocr_slips_only(self):
+        from playden_tester.playden_ui import same_name
+        self.assertTrue(same_name("BatmanTM: Arkham Origins", "Batman™: Arkham Origins"))
+        self.assertTrue(same_name("Ouiplash", "Quiplash"))
+        self.assertTrue(same_name("LEGOO Batman", "LEGO® Batman"))
+        self.assertTrue(same_name("Sniper EIite 4", "Sniper Elite 4"))
+        self.assertFalse(same_name("Sniper Elite 3", "Sniper Elite 4"))
+        self.assertFalse(same_name("Half-Life", "Half-Life 2"))
+        self.assertFalse(same_name("Escape Simulator 2", "Escape Simulator"))
+
     def test_reserved_title(self):
         from playden_tester.campaign import reserved_title
         log = "\n".join([
@@ -591,6 +601,23 @@ class ListsTest(unittest.TestCase):
             games = load_list(paths, None, None, {1: tier_rank("gold"), 3: tier_rank("platinum")})
         self.assertEqual([(g.app, g.controller) for g in games], [(4, "partial"), (1, "full"), (2, "full"),
                                                                  (3, "partial")])
+
+    def test_smallest_install_first(self):
+        from playden_tester.campaign import sort_rows
+        from playden_tester.lists import size_text
+        from playden_tester.protondb import tier_rank
+        from playden_tester.sizes import install_size_gb
+        self.assertEqual(install_size_gb({"minimum": "<strong>Memory:</strong> 4 GB RAM<br>"
+                                                     "<strong>Storage:</strong> 500 MB available space"}), 0.4883)
+        self.assertEqual(install_size_gb("<li><strong>Hard Drive Space:</strong>20 GB<br>"), 20.0)
+        self.assertIsNone(install_size_gb("<strong>Memory:</strong> 8 GB RAM"))
+        rows = [{"app": 1, "controller": "full"}, {"app": 2, "controller": "partial"}, {"app": 3, "controller": "full"},
+                {"app": 4, "controller": "full"}, {"app": 5, "controller": "full", "installed": True}]
+        sizes = {1: 20.0, 2: 0.5, 3: 4.0, 5: 60.0}
+        # Installed first; then smallest first, whatever the controller support or rating; no stated size last.
+        self.assertEqual([r["app"] for r in sort_rows(rows, None, None, {1: tier_rank("platinum")}, sizes)],
+                         [5, 2, 3, 1, 4])
+        self.assertEqual([size_text(gb) for gb in (0.49, 4.0, 19.6, None)], ["502 MB", "4 GB", "19.6 GB", "–"])
 
     def test_partial_from_store_category(self):
         import io

@@ -31,15 +31,17 @@ Each game's own Playden settings are left at Playden's defaults, apart from the 
 
 ## Test order
 
-Most promising and most useful first:
+Quickest first, so the most games get tested in the least time:
 
 1. Games already installed (no download to wait for).
-2. Full controller support before partial (partial support often means menus that need a mouse).
-3. [ProtonDB](https://www.protondb.com) rating: Platinum, Gold, Silver, Bronze, Borked, then games with too few or no
+2. The smallest install first: the disk space the game's Steam store page asks for (its minimum requirements).
+   Games whose page doesn't state it come after the rest. Games of the same size follow the rest of this order.
+3. Full controller support before partial (partial support often means menus that need a mouse).
+4. [ProtonDB](https://www.protondb.com) rating: Platinum, Gold, Silver, Bronze, Borked, then games with too few or no
    reports. A game that runs well through Proton on Linux is more likely to run under Playden's Wine.
-4. Games with no console version first, then games on Xbox or Nintendo only, then older PlayStations, and games with
+5. Games with no console version first, then games on Xbox or Nintendo only, then older PlayStations, and games with
    a PS4 or PS5 version last (those already play on the PS5 without Playden). Console versions come from Wikidata.
-5. DualSense support, then DualShock, then neither, from the Steam store's categories.
+6. DualSense support, then DualShock, then neither, from the Steam store's categories.
 
 ## What happens to each game
 

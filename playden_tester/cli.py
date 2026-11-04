@@ -398,9 +398,12 @@ def cmd_lists(args):
         Path(args.years).write_text(json.dumps(years, indent=1), encoding="utf-8")
     features = _read_json(args.features, {})
     have = lambda path: path and Path(path).exists()
+    from .sizes import load_sizes
+    sizes = load_sizes(Path(args.sizes)) if have(args.sizes) else {}
     rows = to_test_rows(sort_rows(todo, load_ranks(Path(args.ports)) if have(args.ports) else {},
                                   load_pads(Path(args.features)) if have(args.features) else {},
-                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}), years, features)
+                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}, sizes),
+                        years, features, sizes)
     ports = {row["app"]: row["ports"] for row in _read_json(args.ports, [])}
     tiers = {row["app"]: row["tier"] for row in _read_json(args.protondb, [])}
     out = Path(args.out)
@@ -418,6 +421,26 @@ def cmd_lists(args):
         print(f"by players (read on {players['read_on']}"
               + (f"; {missing} games not looked up yet, run 'players'" if missing else "") + f"): "
               f"{out / 'games-by-players.md'}")
+    return 0
+
+
+def cmd_sizes(args):
+    """How much disk space each game of a list needs (Steam store requirements): campaigns test the smallest first."""
+    import json
+    from .sizes import fill_sizes
+    games = read_lists(args.list)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cache = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+    save = lambda sizes: out.write_text(json.dumps(sizes, indent=1), encoding="utf-8")
+    print(f"{len(games)} games; {sum(str(g['app']) not in cache for g in games)} to look up on the Steam store")
+    try:
+        fill_sizes([g["app"] for g in games], cache, save=save)
+    finally:
+        save(cache)
+    known = [cache[str(g["app"])] for g in games if cache.get(str(g["app"]))]
+    print(f"{len(known)} of {len(games)} games state their size"
+          + (f" ({min(known):g} to {max(known):g} GB)" if known else "") + f": {out}")
     return 0
 
 
@@ -449,10 +472,11 @@ def cmd_update(args):
              ("ports", cmd_ports, Namespace(list=library, out="data/console-ports.json")),
              ("features", cmd_features, Namespace(list=library, out="data/store-features.json",
                                                   anticheat="data/multiplayer-anticheat.json", refresh=False)),
-             ("protondb", cmd_protondb, Namespace(list=library, out="data/protondb.json"))]
+             ("protondb", cmd_protondb, Namespace(list=library, out="data/protondb.json")),
+             ("sizes", cmd_sizes, Namespace(list=library, out="data/install-sizes.json"))]
     lists = Namespace(list=library, skip=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
                       campaign="results/campaign", ports="data/console-ports.json",
-                      features="data/store-features.json", protondb="data/protondb.json",
+                      features="data/store-features.json", protondb="data/protondb.json", sizes="data/install-sizes.json",
                       years="data/release-years.json", players="data/steam-players.json", out="data")
     for name, func, step in steps:
         print(f"== {name}")
@@ -531,7 +555,12 @@ def cmd_campaign(args):
         from .protondb import load_tiers
         tiers = load_tiers(Path(args.protondb))
         print(f"best ProtonDB rating first ({args.protondb})")
-    games = load_list(args.list, ranks, pads, tiers)
+    sizes = {}
+    if args.sizes and Path(args.sizes).exists():
+        from .sizes import load_sizes
+        sizes = load_sizes(Path(args.sizes))
+        print(f"smallest install first ({args.sizes})")
+    games = load_list(args.list, ranks, pads, tiers, sizes)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
@@ -639,6 +668,9 @@ def main(argv=None):
     p.add_argument("--protondb", default="data/protondb.json", metavar="FILE",
                    help="test the games with the best ProtonDB rating first (before the console and pad order), from "
                         "this list written by 'protondb' (if it exists); '' leaves it out")
+    p.add_argument("--sizes", default="data/install-sizes.json", metavar="FILE",
+                   help="test the games needing the least disk space first (before every other order), from this "
+                        "file written by 'sizes' (if it exists); '' leaves it out")
     p.add_argument("--reports", default="data/reports", metavar="FOLDER",
                    help="a folder per game: its screenshot, Playden's report zip (from its web access) and a draft "
                         "for Playden's test-report issue form; '' writes none")
@@ -656,12 +688,17 @@ def main(argv=None):
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE")
     p.add_argument("--features", default="data/store-features.json", metavar="FILE")
     p.add_argument("--protondb", default="data/protondb.json", metavar="FILE")
+    p.add_argument("--sizes", default="data/install-sizes.json", metavar="FILE")
     p.add_argument("--years", default="data/release-years.json", metavar="FILE",
                    help="release years (kept between runs; new games are looked up on Wikidata and the Steam store)")
     p.add_argument("--players", default="data/steam-players.json", metavar="FILE",
                    help="player numbers written by 'players'; without them games-by-players.md is not written")
     p.add_argument("--out", default="data", help="folder for games-to-test.json, .md and games-by-players.md")
     p.set_defaults(func=cmd_lists)
+    p = sub.add_parser("sizes", help="look up how much disk space a list's games need (Steam store requirements)")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
+    p.add_argument("--out", default="data/install-sizes.json")
+    p.set_defaults(func=cmd_sizes)
     p = sub.add_parser("players", help="look up Steam players in the last 30 days of the games still to test "
                                        "(SteamCharts; takes about half an hour)")
     p.add_argument("--list", default="data/games-to-test.json", help="a list written by 'lists'")
@@ -703,7 +740,7 @@ def main(argv=None):
             print(f"error: {error}", file=sys.stderr)
             return 1
     if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features, cmd_protondb, cmd_lists, cmd_players,
-                                           cmd_update):  # these only read the web and data/
+                                           cmd_sizes, cmd_update):  # these only read the web and data/
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)

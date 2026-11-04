@@ -550,23 +550,24 @@ def read_lists(paths):
     return rows
 
 
-def sort_rows(rows, ranks=None, pads=None, tiers=None):
-    """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then games with
-    full controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank},
-    best rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad
-    rank ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
+def sort_rows(rows, ranks=None, pads=None, tiers=None, sizes=None):
+    """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then, with
+    sizes ({app: GB}), the smallest install first and games with no stated size after the rest. Then games with full
+    controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank}, best
+    rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad rank
+    ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
     from .protondb import UNRATED
     from .storefeatures import NO_PAD
-    ranks, pads, tiers = ranks or {}, pads or {}, tiers or {}
-    return sorted(rows, key=lambda row: (not row.get("installed"), row.get("controller") == "partial",
-                                         tiers.get(row["app"], UNRATED), ranks.get(row["app"], 0),
-                                         pads.get(row["app"], NO_PAD)))
+    ranks, pads, tiers, sizes = ranks or {}, pads or {}, tiers or {}, sizes or {}
+    return sorted(rows, key=lambda row: (not row.get("installed"), sizes.get(row["app"], float("inf")) if sizes else 0,
+                                         row.get("controller") == "partial", tiers.get(row["app"], UNRATED),
+                                         ranks.get(row["app"], 0), pads.get(row["app"], NO_PAD)))
 
 
-def load_list(paths, ranks=None, pads=None, tiers=None):
+def load_list(paths, ranks=None, pads=None, tiers=None, sizes=None):
     """The games of one or more `library` lists (JSON) as OwnedGame-like objects, in campaign order (see
     sort_rows)."""
     from .library import OwnedGame
-    rows = sort_rows(read_lists(paths), ranks, pads, tiers)
+    rows = sort_rows(read_lists(paths), ranks, pads, tiers, sizes)
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]

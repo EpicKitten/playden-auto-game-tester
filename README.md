@@ -202,6 +202,7 @@ playden-tester reported                           # games of that list others al
 playden-tester ports                              # which of them also came out on consoles (Wikidata)
 playden-tester features                           # pads, multiplayer and anti-cheat of each (Steam store)
 playden-tester protondb                           # how well each runs on Linux through Proton (ProtonDB)
+playden-tester sizes                              # how much disk space each needs (Steam store)
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of both lists
 ```
 
@@ -210,8 +211,8 @@ The other commands read both lists, `data/games-controller-full.json` and `data/
 whose menus or some parts may need a mouse or keyboard. Steam's `controller_support` field only ever says "full", so
 `library` finds partial support by the store's "Partial Controller Support" category.
 
-`update` runs `reported`, `ports`, `features` and `protondb` in one go and then rebuilds the lists of games still to
-test, so keeping them current takes one command. Only `library` and `campaign` need the console.
+`update` runs `reported`, `ports`, `features`, `protondb` and `sizes` in one go and then rebuilds the lists of games
+still to test, so keeping them current takes one command. Only `library` and `campaign` need the console.
 
 ```sh
 playden-tester update             # check Playden's tracker for new reports and rebuild the lists (a few minutes)
@@ -246,6 +247,11 @@ from Wikidata count as having no console version. `--ports ''` keeps the list's 
 games with Steam's "DualSense Controller Support" go first, then "DualShock Controller Support", from
 `data/store-features.json` (`--features ''` leaves that out). Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
+
+`sizes` reads how much disk space each game needs from the minimum requirements on its Steam store page and
+writes `data/install-sizes.json`; a second run only looks up new games. `campaign` then tests the smallest installs
+first, before every other order below (installed games still come first), and games whose page doesn't state a size
+come last. `--sizes ''` leaves the size out.
 
 `protondb` reads each game's [ProtonDB](https://www.protondb.com) rating and writes `data/protondb.json`. `campaign`
 then sorts by rating, after the controller support and before the console and pad order above: Platinum first, then
