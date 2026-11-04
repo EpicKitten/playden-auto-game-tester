@@ -162,6 +162,44 @@ class ProbeTest(unittest.TestCase):
         self.assertEqual(self.probe(50, bytes(100), bytes([60]) * 100)[0], "unknown")
 
 
+class NudgeTest(unittest.TestCase):
+    def test_it_comes_before_the_first_screenshot_and_is_reported(self):
+        order = []
+        console = mock.Mock()
+        console.is_running.return_value = True
+        console.title_log.return_value = ""
+        console.padd.stick.side_effect = lambda *a: order.append("stick")
+        console.padd.press.side_effect = lambda *a: order.append("press")
+        capture = mock.Mock()
+        capture.snapshot.side_effect = lambda path: order.append("shot") or Path(path)
+        capture.check.return_value = check_frames([bytes(100), bytes(100)])
+        rng = mock.Mock()
+        rng.uniform.return_value = 0.0
+        rng.choice.return_value = "left"
+        now = [0.0]
+
+        def sleep(seconds):
+            now[0] += seconds
+
+        runner = Runner(console, Settings(nudge=True, first_shot=30, watch=40, auto_close=True, poll=5, close_timeout=5),
+                        say=lambda _: None, clock=lambda: now[0], sleep=sleep, capture=capture, shots="shots", rng=rng)
+        console.is_running.side_effect = [True] * 12 + [False] * 5
+        game = mock.Mock(title="FAKE78001", steam_app=1)
+        game.name = "Game"
+        result = runner.run(game)
+        self.assertEqual(order[:3], ["stick", "press", "shot"])
+        console.padd.stick.assert_called_once_with("left", 1.0, 0.0, 0.5)
+        console.padd.press.assert_called_once_with("left")
+        self.assertIn("d-pad left", result.detail)
+
+    def test_every_direction_can_come_up(self):
+        from playden_tester.runner import DPAD
+        self.assertEqual(sorted(DPAD), ["down", "left", "right", "up"])
+
+    def test_off_by_default(self):
+        self.assertFalse(Settings().nudge)
+
+
 class ClipTest(unittest.TestCase):
     def test_a_passing_game_keeps_no_video(self):
         with tempfile.TemporaryDirectory() as folder:

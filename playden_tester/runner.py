@@ -1,4 +1,6 @@
 """Run each game once and decide how far it got."""
+import math
+import random
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,6 +18,8 @@ EXITED = "exited_early"           # quit before the watch time, nothing fatal in
 SURVIVED = "survived"             # still running when the watch time was over
 STUCK = "not_closed"              # survived, and nobody closed it, so the run stopped
 SILENT_BELOW = -70.0              # dB; the card's mean level when a game makes no sound
+NUDGE_LEAD = 5.0                  # seconds before the first screenshot for the random input, so it can show there
+DPAD = ("up", "down", "left", "right")
 
 
 @dataclass
@@ -29,6 +33,7 @@ class Settings:
     auto_close: bool = False      # close a game that survived through padd, instead of waiting for a person
     screen_seconds: float = 4.0   # seconds of screen watched (with a capture card) before a surviving game is closed
     first_shot: float = 30.0      # seconds after the game starts running for a first screenshot (0: none)
+    nudge: bool = False           # a random stick move and d-pad press just before the first screenshot
     probe: bool = False           # press buttons after the first screenshot and see whether the picture changes
     clip_seconds: float = 0.0     # seconds of video from the start of a game, kept only when it fails
     audio_seconds: float = 0.0    # seconds of the card's sound measured at the end of the watch
@@ -65,8 +70,9 @@ class Result:
 
 class Runner:
     def __init__(self, console, settings=None, say=print, clock=time.monotonic, sleep=time.sleep,
-                 capture=None, shots=None):
+                 capture=None, shots=None, rng=random):
         self.console = console
+        self.rng = rng
         self.capture = capture  # a capture.Capture, or None without a capture card
         self.shots = shots      # folder for screenshots
         self.pending = []       # (result, session start times before its launch) whose session is not in its log yet
@@ -113,7 +119,14 @@ class Runner:
         first = min(s.first_shot, s.watch) if self.capture and self.shots and s.first_shot else 0
         quit_after = None
         if first:
-            gone = self._wait(lambda: not self.console.is_running(game.title), max(0.0, first - (self.clock() - start)))
+            quit_seen = lambda: not self.console.is_running(game.title)
+            gone = None
+            if s.nudge:
+                gone = self._wait(quit_seen, max(0.0, first - NUDGE_LEAD - (self.clock() - start)))
+                if gone is None:
+                    self._nudge(result)
+            if gone is None:
+                gone = self._wait(quit_seen, max(0.0, first - (self.clock() - start)))
             quit_after = None if gone is None else self.clock() - start
         if first and quit_after is None:
             try:
@@ -167,6 +180,20 @@ class Runner:
         if result.clip and result.passed:
             Path(self.shots, result.clip).unlink(missing_ok=True)
             result.clip = ""
+
+    def _nudge(self, result):
+        """Move the left stick in a random direction and press a random d-pad direction. The report says which, so
+        anything they set off can be tried again."""
+        angle, button = self.rng.uniform(0, 2 * math.pi), self.rng.choice(DPAD)
+        x, y = round(math.cos(angle), 2), round(math.sin(angle), 2)
+        try:
+            self.console.padd.stick("left", x, y, 0.5)
+            self.console.padd.press(button)
+        except PaddError as error:
+            self.say(f"[{result.title}] no random input: {error}")
+            return
+        result.notes.append(f"random input before the first screenshot: left stick x {x:g}, y {y:g}, d-pad {button}")
+        self.say(f"[{result.title}] random input: left stick x {x:g}, y {y:g}, d-pad {button}")
 
     def _probe(self, result):
         """Press Cross a few times and move a stick, the way past most title screens, and compare the picture before

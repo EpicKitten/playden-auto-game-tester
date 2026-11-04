@@ -242,8 +242,9 @@ manager and padd if they stopped, clears PS5 error dialogs (Circle for anything 
 games left running, then goes on to the next game. After 10 recoveries in a run it stops, so someone can look.
 
 It reads the console's real free space with the `ps5df` payload before each download, when it's built. Each game also
-gets deeper checks: 20 seconds of video, kept as `start-of-game.mp4` only when the game fails; Cross presses and a stick
-move, comparing the picture before and after; the frame rate read off the performance overlay; and the sound level on
+gets deeper checks: 20 seconds of video, kept as `start-of-game.mp4` only when the game fails; a random left stick move
+and d-pad press 5 seconds before the first screenshot; Cross presses and a stick move, comparing the picture before and
+after; the frame rate read off the performance overlay; and the sound level on
 HDMI. They go in the game's report. `--plain` leaves them out.
 
 ## Claude Code plugin

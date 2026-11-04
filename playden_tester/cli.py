@@ -604,7 +604,8 @@ def cmd_campaign(args):
     payloads = PADD_BUILD.parent.parent / "payloads"
     healer = Healer(console, ui, PayloadManager(args.host), folder=out / "recovery", capture=capture,
                     df_elf=payloads / "ps5df.elf", padd_elf=PADD_BUILD)
-    deep = {} if args.plain else {"probe": True, "clip_seconds": 20.0, "audio_seconds": 3.0, "read_fps": True}
+    deep = {} if args.plain else {"nudge": True, "probe": True, "clip_seconds": 20.0, "audio_seconds": 3.0,
+                                  "read_fps": True}
     campaign = Campaign(console, ui, capture,
                         Settings(watch=args.watch, close_timeout=120, auto_close=True, **deep), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
