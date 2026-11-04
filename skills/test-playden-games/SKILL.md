@@ -45,7 +45,8 @@ after each press. Never guess at buttons from memory of an older screen.
 - **Never post to Playden's tracker.** Reports stay as local drafts until the user reviews them.
 - **`session.v1` holds the Steam sign-in.** The tools refuse it. Don't look for a way around that.
 - **Keep saves.** Never turn on "Delete saves too" in Playden's uninstall dialog.
-- **Only remove games the campaign tested.** Don't uninstall the user's own games.
+- **Tested games are uninstalled afterwards,** even ones installed before the campaign. Untested games are never
+  removed.
 - **`file_delete` is permanent.** Keep its `dry_run` default, and pass `false` only when the user asked for that
   exact delete. Show them the dry run first.
 - **`storage_clean` permanently removes data.** Use it only when the user asked. It stays away from Kept game data.

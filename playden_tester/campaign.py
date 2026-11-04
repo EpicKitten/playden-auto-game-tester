@@ -432,8 +432,8 @@ class Campaign:
         self.save_report(game, title, result, versions, self.out / "logs" / zip_name)
         self.mark(game, status=result.status, screen=result.screen.get("verdict", ""), detail=result.detail,
                   issue=str(issue.relative_to(self.out)) if issue else "", logs=f"logs/{zip_name}")
-        if not self.keep and result.status != LAUNCH_FAILED:
-            # A failed uninstall leaves the test result as it is. Some games have a PS5 title and files but are
+        if not self.keep:
+            # Every tested game goes, whatever the result and whoever installed it. A failed uninstall leaves the test result as it is. Some games have a PS5 title and files but are
             # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
             try:
                 self.playden_front()
@@ -503,6 +503,7 @@ class Campaign:
                 continue
             if result and result.status == STUCK:
                 if self._heal(f"{game.title} could not be closed"):
+                    self.remove_download(game)  # closed now, so it goes like any other tested game
                     continue
                 self.say("Stopping: a game could not be closed.")
                 return 2

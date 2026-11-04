@@ -52,7 +52,8 @@ between games when you can: a stop in the middle of a download leaves it paused 
   already redacted by Playden.
 - **Nothing is posted to Playden's tracker.** Issue drafts are written locally for the user to review.
 - **Uninstalls keep saves.** Check that "Delete saves too" stays Off; never press it.
-- **Don't uninstall the user's own games.** The campaign only evicts games it tested itself.
+- **Every game a campaign tests is uninstalled afterwards,** whatever the result, and even if it was installed before
+  the campaign. `--keep` is the only way out. Games the campaign hasn't tested are never removed.
 - **New tools go through `rig.py`,** so they get its checks: `session.v1` is refused on every route, deletes stay
   inside `PS5_DELETE_ROOTS` and are dry runs by default, and input waits for a campaign to end.
 - **chiaki-ng's pairing key stays in chiaki-ng.** Don't read it from the registry: start chiaki-ng instead.
