@@ -11,6 +11,7 @@ import time
 
 from .filemanager import FileManagerError
 from .padd import PORT as PADD_PORT, Padd, PaddError
+from .payloadmgr import PayloadManager, PayloadManagerError
 
 PLAYDEN = "FAKE77031"
 HOMEBREW = "/data/homebrew"
@@ -21,6 +22,9 @@ REQUEST = "/data/playden/self-update/relaunch-title"
 RESULT = "/data/playden/self-update/relaunch.log"
 ELFLDR_PORT = 9021
 PADD_ELF = "/data/playden-tester/padd.elf"
+
+GAME_PROCESS = "eboot.bin"
+NOTHING_TO_CLOSE = "0xffffffff"  # what padd's close answers with no game process left
 
 TITLE_ID = re.compile(r"^[A-Z]{4}\d{5}$")
 RC = re.compile(r"(sceLncUtilLaunchApp|sceSystemServiceLaunchApp) rc=0x([0-9a-f]{8})")
@@ -52,6 +56,13 @@ class Console:
         self.elfldr_port = elfldr_port
         self.padd = padd or Padd(host)
 
+    def game_processes(self):
+        """How many game processes run (Playden is one when suspended), or None when Payload Manager can't say."""
+        try:
+            return sum(p["name"] == GAME_PROCESS for p in PayloadManager(self.host).processes())
+        except (PayloadManagerError, OSError, ValueError, KeyError):
+            return None
+
     def has_padd(self):
         return self.port_open(PADD_PORT)
 
@@ -74,15 +85,22 @@ class Console:
         return True
 
     def close(self, title=None, timeout=20.0):
-        """Close the running game through padd and wait until its sandbox is gone."""
+        """Close the running game through padd and wait until its sandbox is gone. Some games (Iconoclasts) leave the
+        folder behind once closed, so a folder that stays only counts while the game's process does too."""
+        before = self.game_processes() if title else None
         try:
             self.padd.close_app()
         except PaddError as error:
+            if title and NOTHING_TO_CLOSE in str(error):
+                return
             raise LaunchError(str(error)) from None
         if title:
             deadline = time.monotonic() + timeout
             while self.is_running(title):
                 if time.monotonic() > deadline:
+                    after = self.game_processes()
+                    if before is not None and after is not None and after < before:
+                        return
                     raise LaunchError(f"{title} still runs {timeout:.0f} s after it was closed")
                 time.sleep(1.0)
 

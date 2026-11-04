@@ -5,6 +5,8 @@ from pathlib import Path
 from unittest import mock
 
 from playden_tester import payloadmgr
+from playden_tester.console import Console, LaunchError
+from playden_tester.padd import PaddError
 from playden_tester.capture import check_frames
 from playden_tester.playden_ui import PlaydenUI, UIError
 from playden_tester.recovery import Healer, assign_pad, dialog_action
@@ -198,6 +200,34 @@ class NudgeTest(unittest.TestCase):
 
     def test_off_by_default(self):
         self.assertFalse(Settings().nudge)
+
+
+class CloseTest(unittest.TestCase):
+    def console(self, processes, refusal=None):
+        padd = mock.Mock()
+        padd.close_app.side_effect = refusal
+        console = Console(mock.Mock(), "192.0.2.1", padd=padd)
+        console.is_running = mock.Mock(return_value=True)
+        console.game_processes = mock.Mock(side_effect=processes)
+        return console
+
+    def test_a_folder_left_by_a_closed_game_does_not_count(self):
+        self.console([1, 0]).close("FAKE78010", timeout=0)
+
+    def test_nothing_left_to_close_is_not_an_error(self):
+        self.console([0], PaddError("close refused: SCE error 0xffffffff")).close("FAKE78010", timeout=0)
+
+    def test_a_game_that_really_stays_is_an_error(self):
+        with self.assertRaises(LaunchError):
+            self.console([1, 1]).close("FAKE78010", timeout=0)
+
+    def test_an_unknown_process_count_is_an_error(self):
+        with self.assertRaises(LaunchError):
+            self.console([None, None]).close("FAKE78010", timeout=0)
+
+    def test_another_refusal_is_still_an_error(self):
+        with self.assertRaises(LaunchError):
+            self.console([1], PaddError("close refused: SCE error 0x80940033")).close("FAKE78010")
 
 
 class ClipTest(unittest.TestCase):
