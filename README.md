@@ -224,7 +224,8 @@ playden-tester update             # check Playden's tracker for new reports and 
 playden-tester update --players   # also read Steam player numbers again (about half an hour more)
 ```
 
-The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them, and
+The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them,
+[`data/games-by-size.md`](data/games-by-size.md), the same games smallest first, and
 [`data/games-by-players.md`](data/games-by-players.md), the same games by average Steam players in the last 30 days
 (from [SteamCharts](https://steamcharts.com)). `lists` rebuilds them from what the other commands wrote, and `players`
 reads the player numbers into `data/steam-players.json`. `campaign` tests the most played games first, before every

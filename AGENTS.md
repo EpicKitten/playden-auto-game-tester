@@ -78,7 +78,8 @@ changing the navigation code. Don't guess at buttons.
 
 ## Data
 
-- `data/` is gitignored except `data/games-to-test.md` and `data/games-by-players.md`, the maintainer's lists. Other
+- `data/` is gitignored except `data/games-to-test.md`, `data/games-by-players.md` and `data/games-by-size.md`, the
+  maintainer's lists. Other
   users regenerate them with `library --controller full`, `library --controller partial` and `update`.
 - `data/reports/<app>-<name>/` holds each tested game's screenshots (`screenshot-30s.jpg`, `screenshot-90s.jpg`),
   `playden-report.zip`, `issue.md` and `result.json`. Not committed.

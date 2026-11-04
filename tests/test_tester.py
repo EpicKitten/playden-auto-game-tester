@@ -619,6 +619,15 @@ class ListsTest(unittest.TestCase):
                          [5, 2, 3, 1, 4])
         self.assertEqual([size_text(gb) for gb in (0.49, 4.0, 19.6, None)], ["502 MB", "4 GB", "19.6 GB", "–"])
 
+    def test_by_size_list(self):
+        from playden_tester.lists import by_size_markdown
+        rows = [{"app": 1, "title": "Big", "size_gb": 150.0}, {"app": 2, "title": "Unknown"},
+                {"app": 3, "title": "Tiny", "size_gb": 0.5}, {"app": 4, "title": "Also unknown", "size_gb": None}]
+        lines = [l for l in by_size_markdown(rows, {}).splitlines() if l.startswith("| ") and "Game" not in l]
+        self.assertEqual([l.split(" | ")[1] for l in lines], ["Tiny", "Big", "Unknown", "Also unknown"])
+        self.assertEqual(lines[0].split(" | ")[2], "512 MB")
+        self.assertTrue(lines[0].endswith("| 3 |"))  # its place in the test order
+
     def test_most_played_first(self):
         import json
         import tempfile

@@ -380,10 +380,11 @@ def _read_json(path, default):
 
 
 def cmd_lists(args):
-    """Write the games still to test as Markdown: games-to-test.md in campaign order, games-by-players.md by players."""
+    """Write the games still to test as Markdown: games-to-test.md in campaign order, games-by-players.md by players
+    and games-by-size.md smallest first."""
     import json
     from .campaign import done_apps, sort_rows
-    from .lists import by_players_markdown, fill_years, still_to_test, to_test_markdown, to_test_rows
+    from .lists import by_players_markdown, by_size_markdown, fill_years, still_to_test, to_test_markdown, to_test_rows
     from .ports import load_ranks
     from .protondb import load_tiers
     from .storefeatures import load_pads
@@ -416,6 +417,8 @@ def cmd_lists(args):
     (out / "games-to-test.md").write_text(to_test_markdown(rows, len(games), ports, tiers, state), encoding="utf-8",
                                           newline="\n")
     print(f"{len(rows)} of {len(games)} games still to test: {out / 'games-to-test.md'}")
+    (out / "games-by-size.md").write_text(by_size_markdown(rows, ports), encoding="utf-8", newline="\n")
+    print(f"by size: {out / 'games-by-size.md'}")
     players = _read_json(args.players, None)
     if players:
         (out / "games-by-players.md").write_text(
@@ -690,7 +693,8 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/protondb.json")
     p.set_defaults(func=cmd_protondb)
-    p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md)")
+    p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md, "
+                                     "games-by-size.md)")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--skip", nargs="*", metavar="FILE",
                    default=SKIP_LISTS,
@@ -704,7 +708,7 @@ def main(argv=None):
                    help="release years (kept between runs; new games are looked up on Wikidata and the Steam store)")
     p.add_argument("--players", default="data/steam-players.json", metavar="FILE",
                    help="player numbers written by 'players'; without them games-by-players.md is not written")
-    p.add_argument("--out", default="data", help="folder for games-to-test.json, .md and games-by-players.md")
+    p.add_argument("--out", default="data", help="folder for games-to-test.json, .md, games-by-players.md and games-by-size.md")
     p.set_defaults(func=cmd_lists)
     p = sub.add_parser("sizes", help="look up how much disk space a list's games need (Steam store requirements)")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
