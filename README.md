@@ -227,7 +227,9 @@ playden-tester update --players   # also read Steam player numbers again (about 
 The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them, and
 [`data/games-by-players.md`](data/games-by-players.md), the same games by average Steam players in the last 30 days
 (from [SteamCharts](https://steamcharts.com)). `lists` rebuilds them from what the other commands wrote, and `players`
-reads the player numbers into `data/steam-players.json`. Release years come from Wikidata and the Steam store and are
+reads the player numbers into `data/steam-players.json`. `campaign` tests the most played games first, before every
+other order below (installed games still come first), and games with no numbers after the rest; `--players ''` leaves
+this out. Release years come from Wikidata and the Steam store and are
 kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
 tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
 
@@ -242,7 +244,8 @@ game it reads Steam's feature categories and store page, and counts a multiplaye
 page shows Steam's anti-cheat notice, its Steam Deck or SteamOS result says "unsupported anti-cheat", it has the
 "Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. A game with a
 single-player mode is still tested when its only anti-cheat is VAC, FairFight or PunkBuster, which act on online play
-alone. Other rows added to the file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `--skip FILE ...` names
+alone. Other rows added to the file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `data/skip-by-hand.json`, if
+you write it, lists other games to leave out. `--skip FILE ...` names
 other lists, `--skip` alone skips none, and `--only` always tests the games it names.
 
 `ports` looks up each game's platforms on Wikidata (by its Steam app ID) and writes `data/console-ports.json`.
@@ -256,8 +259,8 @@ hour; set `GITHUB_TOKEN` for more.
 
 `sizes` reads how much disk space each game needs from the minimum requirements on its Steam store page and
 writes `data/install-sizes.json`; a second run only looks up new games. `campaign` then tests the smallest installs
-first, before every other order below (installed games still come first), and games whose page doesn't state a size
-come last. `--sizes ''` leaves the size out.
+first among games with the same player numbers (in practice, games SteamCharts has no numbers for), before every
+other order below, and games whose page doesn't state a size come last. `--sizes ''` leaves the size out.
 
 `protondb` reads each game's [ProtonDB](https://www.protondb.com) rating and writes `data/protondb.json`. `campaign`
 then sorts by rating, after the controller support and before the console and pad order above: Platinum first, then

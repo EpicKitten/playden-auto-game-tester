@@ -192,6 +192,10 @@ class Campaign:
             button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
             if "play" in button.lower() and "set" in button.lower():
                 return self.set_up(game)
+            if "failed" in button.lower():
+                self.ui.press("circle")
+                raise DownloadFailed(f"{game.title}: Playden's download failed ({button.strip()!r}); its Queue row "
+                                     "says why")
             if "queued" in button.lower() and time.monotonic() - started < QUEUE_WAIT:
                 # Waiting behind another download (Playden 0.10's queue): its own time starts once it runs.
                 deadline = max(deadline, time.monotonic() + limit)
@@ -550,24 +554,26 @@ def read_lists(paths):
     return rows
 
 
-def sort_rows(rows, ranks=None, pads=None, tiers=None, sizes=None):
+def sort_rows(rows, ranks=None, pads=None, tiers=None, sizes=None, players=None):
     """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then, with
+    players ({app: average players}), the most played first and games with no numbers after the rest. Then, with
     sizes ({app: GB}), the smallest install first and games with no stated size after the rest. Then games with full
     controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank}, best
     rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad rank
     ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
     from .protondb import UNRATED
     from .storefeatures import NO_PAD
-    ranks, pads, tiers, sizes = ranks or {}, pads or {}, tiers or {}, sizes or {}
-    return sorted(rows, key=lambda row: (not row.get("installed"), sizes.get(row["app"], float("inf")) if sizes else 0,
+    ranks, pads, tiers, sizes, players = ranks or {}, pads or {}, tiers or {}, sizes or {}, players or {}
+    return sorted(rows, key=lambda row: (not row.get("installed"), -players.get(row["app"], 0),
+                                         sizes.get(row["app"], float("inf")) if sizes else 0,
                                          row.get("controller") == "partial", tiers.get(row["app"], UNRATED),
                                          ranks.get(row["app"], 0), pads.get(row["app"], NO_PAD)))
 
 
-def load_list(paths, ranks=None, pads=None, tiers=None, sizes=None):
+def load_list(paths, ranks=None, pads=None, tiers=None, sizes=None, players=None):
     """The games of one or more `library` lists (JSON) as OwnedGame-like objects, in campaign order (see
     sort_rows)."""
     from .library import OwnedGame
-    rows = sort_rows(read_lists(paths), ranks, pads, tiers, sizes)
+    rows = sort_rows(read_lists(paths), ranks, pads, tiers, sizes, players)
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]

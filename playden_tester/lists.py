@@ -35,7 +35,7 @@ FairFight, PunkBuster).
 
 **Order**
 
-Games are sorted by how much disk space they need, smallest first, so the most games get tested in the least time. The size is what the game's Steam store page asks for; games whose page doesn't say come last. Games of the same size are sorted by the rest of this section.
+Games are sorted by how many people played them on Steam in the last 30 days, most first, so testing them helps the most people. The numbers come from [SteamCharts](https://steamcharts.com). Games it has no numbers for come after the rest, sorted by how much disk space they need, smallest first. The size is what the game's Steam store page asks for; games whose page doesn't say come last. Games of the same size are sorted by the rest of this section.
 
 Games with full controller support come before games with partial support, whose menus or some parts may need a \
 mouse or keyboard. Each of those two groups is sorted first by its games' [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux \

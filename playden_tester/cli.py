@@ -22,6 +22,7 @@ MAX_FAILED_LAUNCHES = 2
 PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
 # The games with full and with partial controller support, from 'library --controller full' and '... partial'.
 LIBRARY_LISTS = ["data/games-controller-full.json", "data/games-controller-partial.json"]
+SKIP_LISTS = ["data/tested-by-others.json", "data/multiplayer-anticheat.json", "data/skip-by-hand.json"]
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
          PADD_PORT: "padd virtual controller (optional: input, unattended close)",
@@ -398,11 +399,13 @@ def cmd_lists(args):
         Path(args.years).write_text(json.dumps(years, indent=1), encoding="utf-8")
     features = _read_json(args.features, {})
     have = lambda path: path and Path(path).exists()
+    from .players import load_players
     from .sizes import load_sizes
     sizes = load_sizes(Path(args.sizes)) if have(args.sizes) else {}
     rows = to_test_rows(sort_rows(todo, load_ranks(Path(args.ports)) if have(args.ports) else {},
                                   load_pads(Path(args.features)) if have(args.features) else {},
-                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}, sizes),
+                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}, sizes,
+                                  load_players(Path(args.players)) if have(args.players) else {}),
                         years, features, sizes)
     ports = {row["app"]: row["ports"] for row in _read_json(args.ports, [])}
     tiers = {row["app"]: row["tier"] for row in _read_json(args.protondb, [])}
@@ -474,7 +477,7 @@ def cmd_update(args):
                                                   anticheat="data/multiplayer-anticheat.json", refresh=False)),
              ("protondb", cmd_protondb, Namespace(list=library, out="data/protondb.json")),
              ("sizes", cmd_sizes, Namespace(list=library, out="data/install-sizes.json"))]
-    lists = Namespace(list=library, skip=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+    lists = Namespace(list=library, skip=SKIP_LISTS,
                       campaign="results/campaign", ports="data/console-ports.json",
                       features="data/store-features.json", protondb="data/protondb.json", sizes="data/install-sizes.json",
                       years="data/release-years.json", players="data/steam-players.json", out="data")
@@ -560,7 +563,12 @@ def cmd_campaign(args):
         from .sizes import load_sizes
         sizes = load_sizes(Path(args.sizes))
         print(f"smallest install first ({args.sizes})")
-    games = load_list(args.list, ranks, pads, tiers, sizes)
+    players = {}
+    if args.players and Path(args.players).exists():
+        from .players import load_players
+        players = load_players(Path(args.players))
+        print(f"most played first ({args.players})")
+    games = load_list(args.list, ranks, pads, tiers, sizes, players)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
@@ -654,10 +662,10 @@ def main(argv=None):
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
     p.add_argument("--skip", nargs="*", metavar="FILE",
-                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   default=SKIP_LISTS,
                    help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "
-                        "the ones others already reported on and multiplayer games with anti-cheat; --skip alone "
-                        "skips none")
+                        "the ones others already reported on, multiplayer games with anti-cheat and "
+                        "data/skip-by-hand.json; --skip alone skips none")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE",
                    help="test games with a console version last, PlayStation releases after the rest and PS4 and "
                         "PS5 ones at the very end, from this list "
@@ -669,8 +677,11 @@ def main(argv=None):
                    help="test the games with the best ProtonDB rating first (before the console and pad order), from "
                         "this list written by 'protondb' (if it exists); '' leaves it out")
     p.add_argument("--sizes", default="data/install-sizes.json", metavar="FILE",
-                   help="test the games needing the least disk space first (before every other order), from this "
-                        "file written by 'sizes' (if it exists); '' leaves it out")
+                   help="test the games needing the least disk space first (after the player order, before every "
+                        "other order), from this file written by 'sizes' (if it exists); '' leaves it out")
+    p.add_argument("--players", default="data/steam-players.json", metavar="FILE",
+                   help="test the most played games first (before every other order), from this file written by "
+                        "'players' (if it exists); '' leaves it out")
     p.add_argument("--reports", default="data/reports", metavar="FOLDER",
                    help="a folder per game: its screenshot, Playden's report zip (from its web access) and a draft "
                         "for Playden's test-report issue form; '' writes none")
@@ -682,7 +693,7 @@ def main(argv=None):
     p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md)")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--skip", nargs="*", metavar="FILE",
-                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   default=SKIP_LISTS,
                    help="leave out the games in these lists, as campaign does")
     p.add_argument("--campaign", default="results/campaign", help="a campaign's folder: games it tested are left out")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE")

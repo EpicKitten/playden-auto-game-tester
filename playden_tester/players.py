@@ -1,6 +1,7 @@
 """How many people played each game of a list on Steam in the last 30 days, from SteamCharts, for a list of the games
 still to test sorted by players.
 """
+import json
 import re
 import time
 import urllib.error
@@ -22,6 +23,12 @@ def players(app, timeout=30):
     request = urllib.request.Request(PAGE.format(app=app), headers={"User-Agent": "Mozilla/5.0 (playden-auto-tester)"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return last_30_days(response.read().decode("utf-8", "replace"))
+
+
+def load_players(path):
+    """{Steam app: average players} from a file written by the 'players' command."""
+    apps = json.loads(path.read_text(encoding="utf-8"))["apps"]
+    return {int(app): row["avg"] for app, row in apps.items() if row}
 
 
 def fill_players(apps, cache, say=print, pause=0.5, save=None):

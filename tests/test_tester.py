@@ -619,6 +619,24 @@ class ListsTest(unittest.TestCase):
                          [5, 2, 3, 1, 4])
         self.assertEqual([size_text(gb) for gb in (0.49, 4.0, 19.6, None)], ["502 MB", "4 GB", "19.6 GB", "–"])
 
+    def test_most_played_first(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import sort_rows
+        from playden_tester.players import load_players
+        rows = [{"app": 1, "controller": "full"}, {"app": 2, "controller": "full"}, {"app": 3, "controller": "full"},
+                {"app": 4, "controller": "full"}, {"app": 5, "controller": "full", "installed": True}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "players.json"
+            path.write_text(json.dumps({"read_on": "2026-11-03", "apps": {"1": {"avg": 5.5, "peak": 9}, "2": None,
+                                                                          "3": {"avg": 900.0, "peak": 2000}}}))
+            players = load_players(path)
+        self.assertEqual(players, {1: 5.5, 3: 900.0})
+        # Installed first; then most played, whatever the size; no numbers last, smallest first among those.
+        sizes = {1: 1.0, 2: 80.0, 3: 150.0, 4: 2.0, 5: 60.0}
+        self.assertEqual([r["app"] for r in sort_rows(rows, None, None, None, sizes, players)], [5, 3, 1, 4, 2])
+
     def test_partial_from_store_category(self):
         import io
         import json
