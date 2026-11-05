@@ -8,6 +8,7 @@ import re
 import difflib
 import time
 
+from .padd import PaddError
 from .screen import Screen, normalize
 
 # The PS5 system keyboard Playden's search opens (ABC page). The focus starts on G.
@@ -229,6 +230,30 @@ class PlaydenUI:
                             break
                         time.sleep(2)
                     return True
+                self.press(direction, gap=1.2)
+        return False
+
+    def start_from_ps_home(self, name, steps=14):
+        """Go to the PS5's Home, find the game's tile by its exact name and press it. True once it was pressed."""
+        try:
+            self.pad.home()  # refused when nothing runs: Home is showing already
+        except PaddError:
+            pass
+        time.sleep(3.0)
+        for direction in ("right", "left"):
+            for _ in range(steps if direction == "right" else steps * 2):
+                for _ in range(3):  # a game's page slides into place for about 4 s, its name moving as it does
+                    lines = self.read(0.8)[0]
+                    shown = [l.text for l in lines if 200 < l.y < 320 or 680 < l.y < 760]
+                    # The menu of a tile also holds Delete, so Cross only goes to the tile's own page.
+                    ready = any(normalize(l.text) == "playgame" for l in lines) and not any(
+                        normalize(l.text) == "delete" for l in lines)
+                    if ready and any(same_name(text, name) for text in shown):
+                        self.press("cross", gap=3.0)
+                        return True
+                    if not ready:
+                        break
+                    time.sleep(1.0)
                 self.press(direction, gap=1.2)
         return False
 

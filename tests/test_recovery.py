@@ -212,14 +212,14 @@ class CloseTest(unittest.TestCase):
         return console
 
     def test_a_folder_left_by_a_closed_game_does_not_count(self):
-        self.console([1, 0]).close("FAKE78010", timeout=0)
+        self.console([{1}, set()]).close("FAKE78010", timeout=0)
 
     def test_nothing_left_to_close_is_not_an_error(self):
-        self.console([0], PaddError("close refused: SCE error 0xffffffff")).close("FAKE78010", timeout=0)
+        self.console([set()], PaddError("close refused: SCE error 0xffffffff")).close("FAKE78010", timeout=0)
 
     def test_a_game_that_really_stays_is_an_error(self):
         with self.assertRaises(LaunchError):
-            self.console([1, 1]).close("FAKE78010", timeout=0)
+            self.console([{1}, {1}]).close("FAKE78010", timeout=0)
 
     def test_an_unknown_process_count_is_an_error(self):
         with self.assertRaises(LaunchError):
@@ -227,7 +227,102 @@ class CloseTest(unittest.TestCase):
 
     def test_another_refusal_is_still_an_error(self):
         with self.assertRaises(LaunchError):
-            self.console([1], PaddError("close refused: SCE error 0x80940033")).close("FAKE78010")
+            self.console([{1}], PaddError("close refused: SCE error 0x80940033")).close("FAKE78010")
+
+
+class LeftoverFolderTest(unittest.TestCase):
+    def console(self, counts):
+        console = Console(mock.Mock(), "192.0.2.1", padd=mock.Mock())
+        console.game_processes = mock.Mock(side_effect=counts)
+        console.running_titles = mock.Mock(return_value={"FAKE78010"})
+        console.left_behind["FAKE78010"] = None
+        return console
+
+    def test_a_closed_title_is_not_running_whatever_its_folder_says(self):
+        self.assertFalse(self.console([set()]).is_running("FAKE78010"))
+
+    def test_it_starts_from_the_tile_and_never_the_helper(self):
+        console = self.console([{1}, {1, 2}, {1, 2}])
+        console.tile_launch = mock.Mock()
+        console.launch("FAKE78010")
+        console.tile_launch.assert_called_once_with("FAKE78010")
+        console.files.launch_elf.assert_not_called()
+        self.assertTrue(console.is_running("FAKE78010"))
+
+    def test_the_game_quitting_is_seen_by_its_process(self):
+        console = self.console([{1}, {1, 2}, {1}])
+        console.tile_launch = mock.Mock()
+        console.launch("FAKE78010")
+        self.assertFalse(console.is_running("FAKE78010"))
+
+    def test_a_game_that_replaced_playden_counts_as_started(self):
+        console = self.console([{1}, {2}, {2}])
+        console.tile_launch = mock.Mock()
+        console.launch("FAKE78010")
+        self.assertTrue(console.is_running("FAKE78010"))
+
+    def test_without_a_way_to_press_the_tile_it_says_so(self):
+        with self.assertRaisesRegex(LaunchError, "leftover folder"):
+            self.console([{1}]).launch("FAKE78010")
+
+    def test_a_folder_that_went_means_the_normal_launch(self):
+        console = self.console([])
+        console.running_titles.return_value = set()
+        console.port_open = mock.Mock(return_value=False)
+        with self.assertRaisesRegex(LaunchError, "elfldr"):
+            console.launch("FAKE78010")
+        self.assertEqual(console.left_behind, {})
+
+    def test_a_refused_close_remembers_the_title(self):
+        console = Console(mock.Mock(), "192.0.2.1", padd=mock.Mock())
+        console.padd.close_app.side_effect = PaddError("close refused: SCE error 0xffffffff")
+        console.game_processes = mock.Mock(return_value=set())
+        console.close("FAKE78010")
+        self.assertIn("FAKE78010", console.left_behind)
+
+    def test_playden_is_never_taken_for_one(self):
+        console = Console(mock.Mock(), "192.0.2.1", padd=mock.Mock())
+        console.padd.close_app.side_effect = PaddError("close refused: SCE error 0xffffffff")
+        console.game_processes = mock.Mock(return_value=set())
+        console.close("FAKE77031")
+        self.assertEqual(console.left_behind, {})
+
+
+class HomeTileTest(unittest.TestCase):
+    def ui(self, *reads):
+        ui = PlaydenUI(mock.Mock(), mock.Mock(), say=lambda _: None)
+        ui.press = mock.Mock()
+        ui.read = mock.Mock(side_effect=[(lines, None, "x") for lines in reads])
+        return ui
+
+    def page(self, name):
+        return [line(name, 442, 263), line(name, 177, 707), line("Play Game", 266, 870)]
+
+    def test_it_presses_the_exact_game_only(self):
+        ui = self.ui(*[self.page("Escape Simulator 2")] * 3, self.page("Escape Simulator"))
+        with mock.patch("time.sleep"):
+            self.assertTrue(ui.start_from_ps_home("Escape Simulator"))
+        self.assertEqual([c.args[0] for c in ui.press.call_args_list], ["right", "cross"])
+
+    def test_a_page_still_sliding_is_read_again(self):
+        sliding = [line("Play Game", 241, 818)]
+        ui = self.ui(sliding, [line("Iconoclasts", 465, 216), line("Play Game", 242, 820)])
+        with mock.patch("time.sleep"):
+            self.assertTrue(ui.start_from_ps_home("Iconoclasts"))
+        self.assertEqual([c.args[0] for c in ui.press.call_args_list], ["cross"])
+
+    def test_nothing_running_is_fine(self):
+        ui = self.ui(self.page("Iconoclasts"))
+        ui.pad.home.side_effect = PaddError("home refused: SCE error 0xffffffff")
+        with mock.patch("time.sleep"):
+            self.assertTrue(ui.start_from_ps_home("Iconoclasts"))
+
+    def test_cross_never_goes_to_an_open_menu(self):
+        menu = self.page("Iconoclasts") + [line("Delete", 395, 366)]
+        ui = self.ui(*[menu] * 126)
+        with mock.patch("time.sleep"):
+            self.assertFalse(ui.start_from_ps_home("Iconoclasts"))
+        self.assertNotIn("cross", [c.args[0] for c in ui.press.call_args_list])
 
 
 class ClipTest(unittest.TestCase):

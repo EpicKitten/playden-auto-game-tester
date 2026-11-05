@@ -403,7 +403,10 @@ class Campaign:
             self.show_overlay(game)
         except (UIError, LaunchError) as error:
             self.say(f"[{game.app}] {game.title}: Playden not on screen before the test: {error}")
+        self.console.tile_launch = lambda _: self._start_from_tile(game)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
+        if result.status == LAUNCH_FAILED and "leftover folder" in result.detail:
+            raise UIError(result.detail)  # the tester's trouble, not the game's: it is tested again
         if result.status == LAUNCH_FAILED and "0x80940031" in result.detail:
             # Seen now and then on Playden 0.10 right after an install (Escape Simulator 2, The Mermaid Mask); the
             # same title started on the next try.
@@ -445,6 +448,11 @@ class Campaign:
                 self.mark(game, uninstalled=False, uninstall_error=str(error))
                 self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
         return result
+
+    def _start_from_tile(self, game):
+        self.say(f"[{game.app}] {game.title}: its title has a leftover folder; starting it from its Home tile")
+        if not self.ui.start_from_ps_home(game.title):
+            raise LaunchError(f"{game.title} has a leftover folder, and its Home tile was not found")
 
     def recover(self):
         """Before going on after a stop: close a game left running, and give back the test result of games whose
