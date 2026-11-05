@@ -241,6 +241,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
   font: 12px/1.4 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 170px; overflow-y: auto; }
 .field ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .field li.file { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 4px; }
+.copies { display: flex; gap: 6px; flex: none; }
 .scroll { overflow-x: auto; border-top: 1px solid var(--axis); }
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-2); padding: 8px 12px 8px 0; white-space: nowrap;
@@ -422,9 +423,10 @@ function field(label, text, hint) {
 function fileField(form) {
   if (!form.attach.length) return "";
   const items = form.attach.map(file => {
-    clips.push(folderOf(file) + file.split("/").pop());
-    return `<li class="file"><a href="${esc(file)}">${esc(file.split("/").pop())}</a>` +
-      `<button class="btn" type="button" data-clip="${clips.length - 1}">Copy path</button></li>`;
+    clips.push(folderOf(file), folderOf(file) + file.split("/").pop());
+    return `<li class="file"><a href="${esc(file)}">${esc(file.split("/").pop())}</a><span class="copies">` +
+      `<button class="btn" type="button" data-clip="${clips.length - 2}">Copy folder</button>` +
+      `<button class="btn" type="button" data-clip="${clips.length - 1}">Copy path</button></span></li>`;
   }).join("");
   return `<section class="field"><h3>Files to attach <span class="hint">drag these into Logs and screenshots</span></h3><ul>${items}</ul></section>`;
 }

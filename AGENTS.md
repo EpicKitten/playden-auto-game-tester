@@ -60,7 +60,7 @@ between games when you can: a stop in the middle of a download leaves it paused 
   inside `PS5_DELETE_ROOTS` and are dry runs by default, and input waits for a campaign to end.
 - **chiaki-ng's pairing key stays in chiaki-ng.** Don't read it from the registry: start chiaki-ng instead.
 - **Exact names before destructive actions.** The uninstall dialog check must stay exact apart from known OCR slips
-  (®/™/©): "Escape Simulator" must never match "Escape Simulator 2".
+  (®/™/©, capital I read as small L): "Escape Simulator" must never match "Escape Simulator 2".
 - Ask before pushing, opening or editing a PR.
 
 ## Playden 0.10 behaviour the code depends on

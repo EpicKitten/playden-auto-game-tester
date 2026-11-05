@@ -77,10 +77,12 @@ def symbol_readings(name):
 def dialog_names(lines, name):
     """Does the uninstall dialog ("<name>. Frees about 67 MB. ...") name this game and no longer one? OCR slips
     are allowed: "LEGO® Builder's Journey" reads as "LEGOO Builder's Journey"."""
-    text = normalize(" ".join(l.text for l in lines))
-    # Exact, apart from the symbols OCR reads as a letter or drops: anything looser would let "Escape Simulator"
-    # match "Escape Simulator 2" and uninstall the wrong game.
-    return any(normalize(n) + "frees" in text for n in symbol_readings(name))
+    # OCR also takes a capital I for a small L ("Plague lnc: Evolved"), so the two count as one letter here.
+    fold = lambda text: normalize(text).replace("l", "i")
+    text = fold(" ".join(l.text for l in lines))
+    # Exact, apart from these slips and the symbols OCR reads as a letter or drops: anything looser would let
+    # "Escape Simulator" match "Escape Simulator 2" and uninstall the wrong game.
+    return any(fold(n) + "frees" in text for n in symbol_readings(name))
 
 
 # Letters, digits and space only: the key shown as "-" typed a comma ("Half,life 2"), and the typed-text check

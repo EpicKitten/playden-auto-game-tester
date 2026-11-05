@@ -342,6 +342,8 @@ class NameMatchTest(unittest.TestCase):
         self.assertTrue(dialog_names(dialog("Balatro. Frees about 67 MB. Their files and PS5 titles are"), "Balatro"))
         self.assertFalse(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life"))
         self.assertTrue(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life 2"))
+        self.assertTrue(dialog_names(dialog("Plague lnc: Evolved. Frees about 1.5 GB."), "Plague Inc: Evolved"))
+        self.assertFalse(dialog_names(dialog("Escape Simulator 2. Frees about 3 GB."), "Escape Simulator"))
 
 
 class SearchTest(unittest.TestCase):
