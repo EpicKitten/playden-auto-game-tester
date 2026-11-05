@@ -2,7 +2,8 @@
 data/games-by-players.md sorted by Steam players in the last 30 days, and data/games-by-size.md smallest first.
 
 A game is still to test when it is on the `library` list, has no test report on Playden's tracker or row in its
-compatibility list, is not a multiplayer game with anti-cheat, and the campaign has not tested it yet.
+compatibility list, and the campaign has not tested it yet. Multiplayer games with anti-cheat are tested too, even
+though most are expected to fail: a report that says so is still useful.
 """
 import json
 import re
@@ -29,9 +30,9 @@ partial controller support, and it's in the order the tester will run them.
 - Games that someone has already tested, either in a test report on \
 [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues) or on its \
 [compatibility list](https://github.com/leolobato/playden-ps5/blob/main/COMPATIBILITY.md).
-- Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar). Their online play doesn't work \
-under Playden. Games with a single-player mode stay on the list when their anti-cheat only applies online (VAC, \
-FairFight, PunkBuster).
+
+Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar) are on the list. Most are expected to \
+fail, but a report that says so is still useful.
 
 **Order**
 

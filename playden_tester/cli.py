@@ -22,7 +22,7 @@ MAX_FAILED_LAUNCHES = 2
 PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
 # The games with full and with partial controller support, from 'library --controller full' and '... partial'.
 LIBRARY_LISTS = ["data/games-controller-full.json", "data/games-controller-partial.json"]
-SKIP_LISTS = ["data/tested-by-others.json", "data/multiplayer-anticheat.json", "data/skip-by-hand.json"]
+SKIP_LISTS = ["data/tested-by-others.json", "data/skip-by-hand.json"]
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
          PADD_PORT: "padd virtual controller (optional: input, unattended close)",
@@ -294,6 +294,16 @@ def cmd_library(args):
     return 0
 
 
+def cmd_dashboard(args):
+    """Write every game of the library, with this tester's result and Playden's reports, as one page."""
+    from .dashboard import read_rows, write
+    rows = read_rows(args.list, "data/multiplayer-anticheat.json", "data/skip-by-hand.json", "data/tested-by-others.json",
+                     Path(args.campaign) / "campaign.json", "data/install-sizes.json", args.reports)
+    write(rows, args.out)
+    print(f"{len(rows)} games: {args.out}")
+    return 0
+
+
 def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
@@ -500,7 +510,7 @@ def cmd_update(args):
 
 def cmd_features(args):
     """Store features of each game of a list (pads, multiplayer, anti-cheat) and the multiplayer games with
-    anti-cheat that campaigns skip."""
+    anti-cheat, which are tested like any other but marked on the dashboard."""
     import json
     from collections import Counter
     from .storefeatures import (DUALSENSE, DUALSHOCK, StoreFeaturesError, fetch_areweanticheatyet, fill_features,
@@ -692,8 +702,7 @@ def main(argv=None):
     p.add_argument("--skip", nargs="*", metavar="FILE",
                    default=SKIP_LISTS,
                    help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "
-                        "the ones others already reported on, multiplayer games with anti-cheat and "
-                        "data/skip-by-hand.json; --skip alone skips none")
+                        "the ones already reported on and data/skip-by-hand.json; --skip alone skips none")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE",
                    help="test games with a console version last, PlayStation releases after the rest and PS4 and "
                         "PS5 ones at the very end, from this list "
@@ -744,6 +753,12 @@ def main(argv=None):
     p.add_argument("--list", default="data/games-to-test.json", help="a list written by 'lists'")
     p.add_argument("--out", default="data/steam-players.json")
     p.set_defaults(func=cmd_players)
+    p = sub.add_parser("dashboard", help="write dashboard.html: every game, this tester's result and Playden's reports")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
+    p.add_argument("--campaign", default="results/campaign", help="a campaign's folder")
+    p.add_argument("--reports", default="data/reports", metavar="FOLDER", help="a folder per game, from a campaign")
+    p.add_argument("--out", default="dashboard.html")
+    p.set_defaults(func=cmd_dashboard)
     p = sub.add_parser("update", help="bring the lists of games still to test up to date: reported, ports, features, "
                                       "protondb and lists in one go")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
@@ -755,7 +770,7 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/store-features.json", help="store features of each game (kept between runs)")
     p.add_argument("--anticheat", default="data/multiplayer-anticheat.json",
-                   help="where to write the multiplayer games with anti-cheat (campaigns skip them)")
+                   help="where to write the multiplayer games with anti-cheat")
     p.add_argument("--refresh", action="store_true", help="look every game up again")
     p.set_defaults(func=cmd_features)
     p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")
@@ -780,7 +795,7 @@ def main(argv=None):
             print(f"error: {error}", file=sys.stderr)
             return 1
     if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features, cmd_protondb, cmd_lists, cmd_players,
-                                           cmd_sizes, cmd_update):  # these only read the web and data/
+                                           cmd_sizes, cmd_update, cmd_dashboard):  # these only read the web and data/
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)

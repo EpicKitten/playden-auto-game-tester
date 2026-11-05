@@ -289,12 +289,13 @@ it's loaded again by hand.
 titled with its name) or a row in the compatibility list to
 `data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
 
-`campaign` also skips the games in `data/multiplayer-anticheat.json`: multiplayer games with anti-cheat (Easy
-Anti-Cheat, BattlEye, VAC and the like), which cannot be played online under Playden. `features` writes it: for each
+`data/multiplayer-anticheat.json` lists the multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the
+like). `campaign` tests them like any other game, because a report that one fails is still useful, and `dashboard`
+marks them as expected to fail. `features` writes it: for each
 game it reads Steam's feature categories and store page, and counts a multiplayer game as having anti-cheat when its
 page shows Steam's anti-cheat notice, its Steam Deck or SteamOS result says "unsupported anti-cheat", it has the
 "Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. A game with a
-single-player mode is still tested when its only anti-cheat is VAC, FairFight or PunkBuster, which act on online play
+single-player mode isn't counted when its only anti-cheat is VAC, FairFight or PunkBuster, which act on online play
 alone. Other rows added to the file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `data/skip-by-hand.json`, if
 you write it, lists other games to leave out. `--skip FILE ...` names
 other lists, `--skip` alone skips none, and `--only` always tests the games it names.

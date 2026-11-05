@@ -29,6 +29,7 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
 | `recovery.py` | Getting the console going again unattended: services, the controller dialog, error dialogs, stuck games |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
+| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page |
 | `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |
 
@@ -37,6 +38,7 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 ```sh
 python -m unittest discover -s tests      # run before every commit; all must pass
 python -m playden_tester update           # rebuild the lists of games to test (no console needed)
+python -m playden_tester dashboard        # rebuild dashboard.html from the lists and results (no console needed)
 python -m playden_tester doctor           # check the console (PS5_HOST)
 python -m playden_tester campaign         # the long run; needs padd, the capture card (PS5_CAPTURE) and elfldr
 ```
