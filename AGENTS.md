@@ -29,7 +29,7 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
 | `recovery.py` | Getting the console going again unattended: services, the controller dialog, error dialogs, stuck games |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
-| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page |
+| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page; click a game for its draft, field by field, to copy into Playden's form |
 | `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |
 
@@ -93,6 +93,7 @@ changing the navigation code. Don't guess at buttons.
 - `data/reports/<app>-<name>/` holds each tested game's screenshots (`screenshot-30s.jpg`, `screenshot-90s.jpg`),
   `playden-report.zip`, `issue.md` and `result.json`. Not committed.
 - `games-to-test.json` is not committed: it holds playtime and family-sharing details.
+- `dashboard.html` is not committed: it holds the local issue drafts, log lines included.
 - Markdown lists are written with LF line endings (`newline="\n"`), so a run on Windows doesn't rewrite every line.
 
 ## Style

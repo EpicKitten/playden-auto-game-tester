@@ -298,7 +298,8 @@ def cmd_dashboard(args):
     """Write every game of the library, with this tester's result and Playden's reports, as one page."""
     from .dashboard import read_rows, write
     rows = read_rows(args.list, "data/multiplayer-anticheat.json", "data/skip-by-hand.json", "data/tested-by-others.json",
-                     Path(args.campaign) / "campaign.json", "data/install-sizes.json", args.reports)
+                     Path(args.campaign) / "campaign.json", "data/install-sizes.json", args.reports,
+                     Path(args.campaign) / "issues")
     write(rows, args.out)
     print(f"{len(rows)} games: {args.out}")
     return 0
