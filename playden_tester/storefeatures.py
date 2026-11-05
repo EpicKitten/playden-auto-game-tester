@@ -1,6 +1,7 @@
 """What the Steam store says about each game of a list beyond controller support: its feature categories (which
 pads it supports, multiplayer, VAC) and the anti-cheat its store page declares, so a campaign can test DualSense
-games first and skip multiplayer games with anti-cheat.
+games first and skip multiplayer games with anti-cheat. Games with a single-player mode whose anti-cheat only
+matters online are still tested.
 
 Anti-cheat comes from four places: the store page's anti-cheat notice, Steam's Steam Deck or SteamOS result
 "unsupported anti-cheat", the "Valve Anti-Cheat enabled" category, and AreWeAntiCheatYet's list (by Steam app ID).
@@ -22,6 +23,8 @@ MULTIPLAYER = {"Multi-player", "Online PvP", "Online Co-op", "MMO", "PvP", "Co-o
 VAC = "Valve Anti-Cheat enabled"
 NOTICE = re.compile(r'class="anticheat_name">(.*?)</div>', re.S)
 DECK_ANTICHEAT = "UnsupportedAntiCheat"
+# These act on online play only (bans, server checks), so a single-player mode still starts under Playden.
+ONLINE_ONLY = {"VAC", "FairFight", "PunkBuster"}
 
 
 class StoreFeaturesError(Exception):
@@ -111,8 +114,15 @@ def anticheats(features, listed=()):
     return names
 
 
+def playable_alone(row):
+    """True for a row whose single-player mode is worth testing: its anti-cheat only applies online."""
+    # Steam files "<game> - Multiplayer" apps as single-player too, but they hold no campaign.
+    return (bool(row.get("single_player")) and set(row["anticheats"]) <= ONLINE_ONLY
+            and not row["title"].lower().endswith("multiplayer"))
+
+
 def multiplayer_anticheat(games, cache, awacy):
-    """Rows for the multiplayer games of the list that have anti-cheat."""
+    """Rows for the multiplayer games of the list that have anti-cheat, leaving out the ones playable alone."""
     rows = []
     for game in games:
         features = cache.get(str(game["app"])) or {}
@@ -121,7 +131,7 @@ def multiplayer_anticheat(games, cache, awacy):
         if names and MULTIPLAYER & set(categories):
             rows.append({"app": game["app"], "title": game["title"].strip(), "anticheats": names,
                          "single_player": "Single-player" in categories, "categories": categories})
-    return rows
+    return [row for row in rows if not playable_alone(row)]
 
 
 def load_pads(path):

@@ -1,0 +1,11 @@
+{
+  "name": "playden-tester",
+  "owner": { "name": "EpicKitten" },
+  "plugins": [
+    {
+      "name": "playden-tester",
+      "source": "./",
+      "description": "See and control a jailbroken PS5 and test Playden games on it."
+    }
+  ]
+}

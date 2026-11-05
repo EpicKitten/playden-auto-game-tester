@@ -4,6 +4,11 @@ An app to automatically test playden game compatibility on the PS5 remotely via 
 It starts each [Playden](https://github.com/leolobato/playden-ps5) game on a jailbroken PS5, watches whether it keeps
 running, reads the game's log, and writes a result and a test report for each game.
 
+> [!NOTE]
+> This project is 100% vibecoded: all of its code, tests and documentation were written by an AI coding agent
+> (Claude, in Claude Code), directed by the maintainer. The test reports it produces are AI generated too, and say so
+> in their Versions section. Check results before relying on them or sharing them.
+
 ## Quick start
 
 The short version for testing your own Steam games. The sections after this one explain each part in detail.
@@ -73,7 +78,9 @@ Each tested game gets a folder in `data/reports/`, for example `data/reports/143
   posted for you: read it, check the screenshots, and post it yourself if you want to share the result;
 - `result.json`: the result in short.
 
-A game "survived" when it was still running after 90 seconds. A black screen counts as not working.
+A game "survived" when it was still running after 90 seconds. A black screen counts as not working. How games are
+chosen, tested and judged, and what the tests do not cover, is in
+[docs/testing-methodology.md](docs/testing-methodology.md).
 
 ## What the console needs
 
@@ -200,6 +207,7 @@ playden-tester reported                           # games of that list others al
 playden-tester ports                              # which of them also came out on consoles (Wikidata)
 playden-tester features                           # pads, multiplayer and anti-cheat of each (Steam store)
 playden-tester protondb                           # how well each runs on Linux through Proton (ProtonDB)
+playden-tester sizes                              # how much disk space each needs (Steam store)
 playden-tester campaign --max-gb 20 --limit 10    # the next 10 games of both lists
 ```
 
@@ -208,32 +216,88 @@ The other commands read both lists, `data/games-controller-full.json` and `data/
 whose menus or some parts may need a mouse or keyboard. Steam's `controller_support` field only ever says "full", so
 `library` finds partial support by the store's "Partial Controller Support" category.
 
-`update` runs `reported`, `ports`, `features` and `protondb` in one go and then rebuilds the lists of games still to
-test, so keeping them current takes one command. Only `library` and `campaign` need the console.
+`update` runs `reported`, `ports`, `features`, `protondb` and `sizes` in one go and then rebuilds the lists of games
+still to test, so keeping them current takes one command. Only `library` and `campaign` need the console.
 
 ```sh
 playden-tester update             # check Playden's tracker for new reports and rebuild the lists (a few minutes)
 playden-tester update --players   # also read Steam player numbers again (about half an hour more)
 ```
 
-The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them, and
+The lists are [`data/games-to-test.md`](data/games-to-test.md), in the order `campaign` tests them,
+[`data/games-by-size.md`](data/games-by-size.md), the same games smallest first, and
 [`data/games-by-players.md`](data/games-by-players.md), the same games by average Steam players in the last 30 days
 (from [SteamCharts](https://steamcharts.com)). `lists` rebuilds them from what the other commands wrote, and `players`
-reads the player numbers into `data/steam-players.json`. Release years come from Wikidata and the Steam store and are
+reads the player numbers into `data/steam-players.json`. `campaign` tests the most played games first, before every
+other order below (installed games still come first), and games with no numbers after the rest; `--players ''` leaves
+this out. Release years come from Wikidata and the Steam store and are
 kept in `data/release-years.json`, so only new games are looked up. A game whose campaign run went wrong in the
 tester itself (status `error`) stays on the list, marked for a retest, and the next campaign tests it again.
+
+## Unattended runs
+
+A campaign starts padd itself if it isn't running, and answers the controller dialog through the capture card. That
+turns off your DualSense. When a game goes wrong it saves the screen to `results/campaign/recovery/`, restarts the file
+manager and padd if they stopped, clears PS5 error dialogs (Circle for anything that could remove something) and closes
+games left running, then goes on to the next game. After 10 recoveries in a run it stops, so someone can look.
+
+It reads the console's real free space with the `ps5df` payload before each download, when it's built. Each game also
+gets deeper checks: 20 seconds of video, kept as `start-of-game.mp4` only when the game fails; a random left stick move
+and d-pad press 5 seconds before the first screenshot; Cross presses and a stick move, comparing the picture before and
+after; the frame rate read off the performance overlay; and the sound level on
+HDMI. They go in the game's report. `--plain` leaves them out.
+
+## Claude Code plugin
+
+The repo is also a Claude Code plugin, so an agent can run the console and its tests through tools. It uses only the
+standard library, and works from a checkout of this repo:
+
+```sh
+claude --plugin-dir /path/to/playden-auto-tester
+```
+
+Set `PS5_HOST`, and `PS5_CAPTURE` for the capture card. If the plugin is installed from a marketplace rather than run
+from a checkout, set `PLAYDEN_TESTER_HOME` to the checkout, which is where `data/` and `results/` live.
+
+| Area | Tools |
+| --- | --- |
+| Status and recovery | `status`, `start_services` |
+| Screen | `screenshot` (capture card or Remote Play), `remote_view_stop`, `read_screen`, `screen_check` |
+| Input | `press`, `stick`, `home` |
+| Games | `games`, `launch`, `close_app`, `title_log`, `runtime_log` |
+| Files | `file_list`, `file_read`, `file_write`, `file_upload`, `file_download`, `file_delete` |
+| Payloads and processes | `processes`, `process_kill`, `payload_list`, `payload_start`, `payload_send` |
+| Storage | `disk`, `storage_clean` (build `scripts/build-payloads.sh` first) |
+| Power | `wake`, `power` |
+| Campaigns | `campaign_start`, `campaign_status`, `campaign_stop`, `update_lists` |
+
+`screenshot` with `source: "remote"` needs no capture card. It uses a [chiaki-ng](https://github.com/streetpea/chiaki-ng)
+window, brought to the front for each picture, and the console shows a notification when it connects. Pair chiaki-ng by hand once,
+under Settings > System > Remote Play > Pair Device, or with `scripts/build-rp-get-pin.sh` and `scripts/rp-pin.py` for an
+account that isn't on PSN. chiaki-ng keeps its pairing key, and the tester never reads it.
+
+Payload Manager (port 8084) is what makes this recoverable: `start_services` uses it and elfldr to bring back the file
+manager and padd. padd goes straight to elfldr, so it starts even when the console's disk is full.
+
+Limits: `session.v1` can't be reached through any tool. `file_delete` is a dry run unless told otherwise, and works
+only inside `/data/playden-tester` and the folders in `PS5_DELETE_ROOTS`; it is logged to `results/rig-actions.log`.
+Input and capture tools refuse during a campaign. The file manager can fail to delete large folders. Nothing here can wake the console, and a restart loses the jailbreak until
+it's loaded again by hand.
 
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
 `COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
 titled with its name) or a row in the compatibility list to
 `data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
 
-`campaign` also skips the games in `data/multiplayer-anticheat.json`: multiplayer games with anti-cheat (Easy
-Anti-Cheat, BattlEye, VAC and the like), which cannot be played online under Playden. `features` writes it: for each
+`data/multiplayer-anticheat.json` lists the multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the
+like). `campaign` tests them like any other game, because a report that one fails is still useful, and `dashboard`
+marks them as expected to fail. `features` writes it: for each
 game it reads Steam's feature categories and store page, and counts a multiplayer game as having anti-cheat when its
 page shows Steam's anti-cheat notice, its Steam Deck or SteamOS result says "unsupported anti-cheat", it has the
-"Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. Rows added to the
-file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `--skip FILE ...` names
+"Valve Anti-Cheat enabled" category, or [AreWeAntiCheatYet](https://areweanticheatyet.com) lists it. A game with a
+single-player mode isn't counted when its only anti-cheat is VAC, FairFight or PunkBuster, which act on online play
+alone. Other rows added to the file by hand stay. The store features go to `data/store-features.json`, and a second run only looks up new games. `data/skip-by-hand.json`, if
+you write it, lists other games to leave out. `--skip FILE ...` names
 other lists, `--skip` alone skips none, and `--only` always tests the games it names.
 
 `ports` looks up each game's platforms on Wikidata (by its Steam app ID) and writes `data/console-ports.json`.
@@ -244,6 +308,11 @@ from Wikidata count as having no console version. `--ports ''` keeps the list's 
 games with Steam's "DualSense Controller Support" go first, then "DualShock Controller Support", from
 `data/store-features.json` (`--features ''` leaves that out). Unauthenticated, GitHub allows 60 requests an
 hour; set `GITHUB_TOKEN` for more.
+
+`sizes` reads how much disk space each game needs from the minimum requirements on its Steam store page and
+writes `data/install-sizes.json`; a second run only looks up new games. `campaign` then tests the smallest installs
+first among games with the same player numbers (in practice, games SteamCharts has no numbers for), before every
+other order below, and games whose page doesn't state a size come last. `--sizes ''` leaves the size out.
 
 `protondb` reads each game's [ProtonDB](https://www.protondb.com) rating and writes `data/protondb.json`. `campaign`
 then sorts by rating, after the controller support and before the console and pad order above: Platinum first, then

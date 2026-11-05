@@ -22,6 +22,7 @@ MAX_FAILED_LAUNCHES = 2
 PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.elf"
 # The games with full and with partial controller support, from 'library --controller full' and '... partial'.
 LIBRARY_LISTS = ["data/games-controller-full.json", "data/games-controller-partial.json"]
+SKIP_LISTS = ["data/tested-by-others.json", "data/skip-by-hand.json"]
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
          PADD_PORT: "padd virtual controller (optional: input, unattended close)",
@@ -293,6 +294,17 @@ def cmd_library(args):
     return 0
 
 
+def cmd_dashboard(args):
+    """Write every game of the library, with this tester's result and Playden's reports, as one page."""
+    from .dashboard import read_rows, write
+    rows = read_rows(args.list, "data/multiplayer-anticheat.json", "data/skip-by-hand.json", "data/tested-by-others.json",
+                     Path(args.campaign) / "campaign.json", "data/install-sizes.json", args.reports,
+                     Path(args.campaign) / "issues")
+    write(rows, args.out)
+    print(f"{len(rows)} games: {args.out}")
+    return 0
+
+
 def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
@@ -379,10 +391,11 @@ def _read_json(path, default):
 
 
 def cmd_lists(args):
-    """Write the games still to test as Markdown: games-to-test.md in campaign order, games-by-players.md by players."""
+    """Write the games still to test as Markdown: games-to-test.md in campaign order, games-by-players.md by players
+    and games-by-size.md smallest first."""
     import json
     from .campaign import done_apps, sort_rows
-    from .lists import by_players_markdown, fill_years, still_to_test, to_test_markdown, to_test_rows
+    from .lists import by_players_markdown, by_size_markdown, fill_years, still_to_test, to_test_markdown, to_test_rows
     from .ports import load_ranks
     from .protondb import load_tiers
     from .storefeatures import load_pads
@@ -398,9 +411,14 @@ def cmd_lists(args):
         Path(args.years).write_text(json.dumps(years, indent=1), encoding="utf-8")
     features = _read_json(args.features, {})
     have = lambda path: path and Path(path).exists()
+    from .players import load_players
+    from .sizes import load_sizes
+    sizes = load_sizes(Path(args.sizes)) if have(args.sizes) else {}
     rows = to_test_rows(sort_rows(todo, load_ranks(Path(args.ports)) if have(args.ports) else {},
                                   load_pads(Path(args.features)) if have(args.features) else {},
-                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}), years, features)
+                                  load_tiers(Path(args.protondb)) if have(args.protondb) else {}, sizes,
+                                  load_players(Path(args.players)) if have(args.players) else {}),
+                        years, features, sizes)
     ports = {row["app"]: row["ports"] for row in _read_json(args.ports, [])}
     tiers = {row["app"]: row["tier"] for row in _read_json(args.protondb, [])}
     out = Path(args.out)
@@ -410,6 +428,8 @@ def cmd_lists(args):
     (out / "games-to-test.md").write_text(to_test_markdown(rows, len(games), ports, tiers, state), encoding="utf-8",
                                           newline="\n")
     print(f"{len(rows)} of {len(games)} games still to test: {out / 'games-to-test.md'}")
+    (out / "games-by-size.md").write_text(by_size_markdown(rows, ports), encoding="utf-8", newline="\n")
+    print(f"by size: {out / 'games-by-size.md'}")
     players = _read_json(args.players, None)
     if players:
         (out / "games-by-players.md").write_text(
@@ -418,6 +438,26 @@ def cmd_lists(args):
         print(f"by players (read on {players['read_on']}"
               + (f"; {missing} games not looked up yet, run 'players'" if missing else "") + f"): "
               f"{out / 'games-by-players.md'}")
+    return 0
+
+
+def cmd_sizes(args):
+    """How much disk space each game of a list needs (Steam store requirements): campaigns test the smallest first."""
+    import json
+    from .sizes import fill_sizes
+    games = read_lists(args.list)
+    out = Path(args.out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cache = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
+    save = lambda sizes: out.write_text(json.dumps(sizes, indent=1), encoding="utf-8")
+    print(f"{len(games)} games; {sum(str(g['app']) not in cache for g in games)} to look up on the Steam store")
+    try:
+        fill_sizes([g["app"] for g in games], cache, save=save)
+    finally:
+        save(cache)
+    known = [cache[str(g["app"])] for g in games if cache.get(str(g["app"]))]
+    print(f"{len(known)} of {len(games)} games state their size"
+          + (f" ({min(known):g} to {max(known):g} GB)" if known else "") + f": {out}")
     return 0
 
 
@@ -449,10 +489,11 @@ def cmd_update(args):
              ("ports", cmd_ports, Namespace(list=library, out="data/console-ports.json")),
              ("features", cmd_features, Namespace(list=library, out="data/store-features.json",
                                                   anticheat="data/multiplayer-anticheat.json", refresh=False)),
-             ("protondb", cmd_protondb, Namespace(list=library, out="data/protondb.json"))]
-    lists = Namespace(list=library, skip=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+             ("protondb", cmd_protondb, Namespace(list=library, out="data/protondb.json")),
+             ("sizes", cmd_sizes, Namespace(list=library, out="data/install-sizes.json"))]
+    lists = Namespace(list=library, skip=SKIP_LISTS,
                       campaign="results/campaign", ports="data/console-ports.json",
-                      features="data/store-features.json", protondb="data/protondb.json",
+                      features="data/store-features.json", protondb="data/protondb.json", sizes="data/install-sizes.json",
                       years="data/release-years.json", players="data/steam-players.json", out="data")
     for name, func, step in steps:
         print(f"== {name}")
@@ -470,11 +511,11 @@ def cmd_update(args):
 
 def cmd_features(args):
     """Store features of each game of a list (pads, multiplayer, anti-cheat) and the multiplayer games with
-    anti-cheat that campaigns skip."""
+    anti-cheat, which are tested like any other but marked on the dashboard."""
     import json
     from collections import Counter
     from .storefeatures import (DUALSENSE, DUALSHOCK, StoreFeaturesError, fetch_areweanticheatyet, fill_features,
-                                multiplayer_anticheat, pad_rank)
+                                multiplayer_anticheat, pad_rank, playable_alone)
     games = read_lists(args.list)
     out, anticheat = Path(args.out), Path(args.anticheat)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -492,7 +533,7 @@ def cmd_features(args):
     found = {row["app"]: row for row in multiplayer_anticheat(games, cache, awacy)}
     # Keep games added to the list by hand (anti-cheat announced in news, say) unless they now have their own row.
     kept = [row for row in (json.loads(anticheat.read_text(encoding="utf-8")) if anticheat.exists() else [])
-            if row["app"] not in found]
+            if row["app"] not in found and not playable_alone(row)]
     rows = sorted([*found.values(), *kept], key=lambda row: row["title"].lower())
     anticheat.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
     pads = Counter(pad_rank((cache.get(str(g["app"])) or {}).get("categories")) for g in games)
@@ -510,12 +551,21 @@ def cmd_campaign(args):
     if not args.capture:
         print("a campaign needs the capture card: give --capture or set PS5_CAPTURE", file=sys.stderr)
         return 1
-    if not console.has_padd():
-        print("a campaign needs padd: 'padd start', then 'padd assign'", file=sys.stderr)
-        return 1
     if not console.port_open(ELFLDR_PORT):
         print(f"elfldr is not running on port {ELFLDR_PORT}", file=sys.stderr)
         return 1
+    from .payloadmgr import PayloadManager, send_elf
+    from .recovery import Healer, assign_pad
+    capture = Capture(args.capture)
+    screen = Screen(capture)
+    if not console.has_padd():
+        if not PADD_BUILD.is_file():
+            print("a campaign needs padd: build it with scripts/build-padd.sh", file=sys.stderr)
+            return 1
+        send_elf(args.host, PADD_BUILD.read_bytes(), ELFLDR_PORT)
+        time.sleep(5)
+        if not console.has_padd() or not assign_pad(console.padd, screen):
+            print("padd started, but its controller dialog was not answered: 'padd assign'", file=sys.stderr)
     ranks = {}
     if args.ports and Path(args.ports).exists():
         from .ports import load_ranks
@@ -531,7 +581,17 @@ def cmd_campaign(args):
         from .protondb import load_tiers
         tiers = load_tiers(Path(args.protondb))
         print(f"best ProtonDB rating first ({args.protondb})")
-    games = load_list(args.list, ranks, pads, tiers)
+    sizes = {}
+    if args.sizes and Path(args.sizes).exists():
+        from .sizes import load_sizes
+        sizes = load_sizes(Path(args.sizes))
+        print(f"smallest install first ({args.sizes})")
+    players = {}
+    if args.players and Path(args.players).exists():
+        from .players import load_players
+        players = load_players(Path(args.players))
+        print(f"most played first ({args.players})")
+    games = load_list(args.list, ranks, pads, tiers, sizes, players)
     if args.only:
         wanted = {int(a) for a in args.only}
         games = [g for g in games if g.app in wanted]
@@ -550,14 +610,18 @@ def cmd_campaign(args):
         web = WebAccess(args.host)
         print(f"a folder per game in {args.reports}: screenshot, Playden's report zip (web access, port {WEB_PORT}; "
               "the tester's own logs zip when it does not answer), issue draft")
-    capture = Capture(args.capture)
-    ui = PlaydenUI(console.padd, Screen(capture))
+    ui = PlaydenUI(console.padd, screen)
     out = Path(args.out)
+    payloads = PADD_BUILD.parent.parent / "payloads"
+    healer = Healer(console, ui, PayloadManager(args.host), folder=out / "recovery", capture=capture,
+                    df_elf=payloads / "ps5df.elf", padd_elf=PADD_BUILD)
+    deep = {} if args.plain else {"nudge": True, "probe": True, "clip_seconds": 20.0, "audio_seconds": 3.0,
+                                  "read_fps": True}
     campaign = Campaign(console, ui, capture,
-                        Settings(watch=args.watch, close_timeout=120, auto_close=True), out,
+                        Settings(watch=args.watch, close_timeout=120, auto_close=True, **deep), out,
                         {"host": args.host, "watch_seconds": args.watch, **console_facts(files)},
                         keep=args.keep, max_gb=args.max_gb, reserve_gb=args.reserve_gb,
-                        reports=args.reports or None, web=web)
+                        reports=args.reports or None, web=web, healer=healer)
     from .library import read_library
     campaign.library = read_library(files)
     code = campaign.run(games, limit=args.limit)
@@ -569,6 +633,14 @@ def cmd_campaign(args):
     return code
 
 
+def cmd_mcp(args):
+    """The MCP server the Claude Code plugin starts: everything in rig.py, as tools."""
+    from .mcp import serve
+    from .rig import Rig
+    os.chdir(os.environ.get("PLAYDEN_TESTER_HOME") or Path(__file__).resolve().parent.parent)
+    return serve(Rig(args.host, args.capture, args.port, Path.cwd()))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="playden-tester", description="Test Playden games on a jailbroken PS5 remotely.")
     parser.add_argument("--host", default=os.environ.get("PS5_HOST"), help="PS5 address (or set PS5_HOST)")
@@ -577,6 +649,8 @@ def main(argv=None):
                         help="capture card device, e.g. \"USB Capture HDMI\" (or set PS5_CAPTURE)")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("doctor", help="check the console is ready for testing").set_defaults(func=cmd_doctor)
+    sub.add_parser("mcp", help="serve the console as MCP tools on stdin and stdout (for agents; see the README)"
+                   ).set_defaults(func=cmd_mcp)
     sub.add_parser("list", help="list the Playden games on the console").set_defaults(func=cmd_list)
     p = sub.add_parser("launch", help="start one title")
     p.add_argument("title")
@@ -624,11 +698,12 @@ def main(argv=None):
     p.add_argument("--limit", type=int, help="test at most this many games this time")
     p.add_argument("--only", nargs="+", metavar="APP", help="only these Steam app IDs")
     p.add_argument("--keep", action="store_true", help="do not uninstall games after testing")
+    p.add_argument("--plain", action="store_true", help="only watch each game: no button presses, video, sound or "
+                                                        "frame rate checks")
     p.add_argument("--skip", nargs="*", metavar="FILE",
-                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   default=SKIP_LISTS,
                    help="skip the games in these lists (JSON rows with an app; missing files are ignored): by default "
-                        "the ones others already reported on and multiplayer games with anti-cheat; --skip alone "
-                        "skips none")
+                        "the ones already reported on and data/skip-by-hand.json; --skip alone skips none")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE",
                    help="test games with a console version last, PlayStation releases after the rest and PS4 and "
                         "PS5 ones at the very end, from this list "
@@ -639,6 +714,12 @@ def main(argv=None):
     p.add_argument("--protondb", default="data/protondb.json", metavar="FILE",
                    help="test the games with the best ProtonDB rating first (before the console and pad order), from "
                         "this list written by 'protondb' (if it exists); '' leaves it out")
+    p.add_argument("--sizes", default="data/install-sizes.json", metavar="FILE",
+                   help="test the games needing the least disk space first (after the player order, before every "
+                        "other order), from this file written by 'sizes' (if it exists); '' leaves it out")
+    p.add_argument("--players", default="data/steam-players.json", metavar="FILE",
+                   help="test the most played games first (before every other order), from this file written by "
+                        "'players' (if it exists); '' leaves it out")
     p.add_argument("--reports", default="data/reports", metavar="FOLDER",
                    help="a folder per game: its screenshot, Playden's report zip (from its web access) and a draft "
                         "for Playden's test-report issue form; '' writes none")
@@ -647,26 +728,38 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/protondb.json")
     p.set_defaults(func=cmd_protondb)
-    p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md)")
+    p = sub.add_parser("lists", help="write the games still to test as Markdown (games-to-test.md, games-by-players.md, "
+                                     "games-by-size.md)")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--skip", nargs="*", metavar="FILE",
-                   default=["data/tested-by-others.json", "data/multiplayer-anticheat.json"],
+                   default=SKIP_LISTS,
                    help="leave out the games in these lists, as campaign does")
     p.add_argument("--campaign", default="results/campaign", help="a campaign's folder: games it tested are left out")
     p.add_argument("--ports", default="data/console-ports.json", metavar="FILE")
     p.add_argument("--features", default="data/store-features.json", metavar="FILE")
     p.add_argument("--protondb", default="data/protondb.json", metavar="FILE")
+    p.add_argument("--sizes", default="data/install-sizes.json", metavar="FILE")
     p.add_argument("--years", default="data/release-years.json", metavar="FILE",
                    help="release years (kept between runs; new games are looked up on Wikidata and the Steam store)")
     p.add_argument("--players", default="data/steam-players.json", metavar="FILE",
                    help="player numbers written by 'players'; without them games-by-players.md is not written")
-    p.add_argument("--out", default="data", help="folder for games-to-test.json, .md and games-by-players.md")
+    p.add_argument("--out", default="data", help="folder for games-to-test.json, .md, games-by-players.md and games-by-size.md")
     p.set_defaults(func=cmd_lists)
+    p = sub.add_parser("sizes", help="look up how much disk space a list's games need (Steam store requirements)")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
+    p.add_argument("--out", default="data/install-sizes.json")
+    p.set_defaults(func=cmd_sizes)
     p = sub.add_parser("players", help="look up Steam players in the last 30 days of the games still to test "
                                        "(SteamCharts; takes about half an hour)")
     p.add_argument("--list", default="data/games-to-test.json", help="a list written by 'lists'")
     p.add_argument("--out", default="data/steam-players.json")
     p.set_defaults(func=cmd_players)
+    p = sub.add_parser("dashboard", help="write dashboard.html: every game, this tester's result and Playden's reports")
+    p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
+    p.add_argument("--campaign", default="results/campaign", help="a campaign's folder")
+    p.add_argument("--reports", default="data/reports", metavar="FOLDER", help="a folder per game, from a campaign")
+    p.add_argument("--out", default="dashboard.html")
+    p.set_defaults(func=cmd_dashboard)
     p = sub.add_parser("update", help="bring the lists of games still to test up to date: reported, ports, features, "
                                       "protondb and lists in one go")
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
@@ -678,7 +771,7 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--out", default="data/store-features.json", help="store features of each game (kept between runs)")
     p.add_argument("--anticheat", default="data/multiplayer-anticheat.json",
-                   help="where to write the multiplayer games with anti-cheat (campaigns skip them)")
+                   help="where to write the multiplayer games with anti-cheat")
     p.add_argument("--refresh", action="store_true", help="look every game up again")
     p.set_defaults(func=cmd_features)
     p = sub.add_parser("ports", help="find which games of a list also came out on consoles (Wikidata)")
@@ -703,7 +796,7 @@ def main(argv=None):
             print(f"error: {error}", file=sys.stderr)
             return 1
     if not args.host and args.func not in (cmd_reported, cmd_ports, cmd_features, cmd_protondb, cmd_lists, cmd_players,
-                                           cmd_update):  # these only read the web and data/
+                                           cmd_sizes, cmd_update, cmd_dashboard):  # these only read the web and data/
         parser.error("give --host or set PS5_HOST")
     try:
         return args.func(args)

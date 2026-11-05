@@ -25,7 +25,11 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `playden_ui.py` | Driving Playden's screens with padd and OCR (tabs, Library search, install, uninstall, game settings) |
 | `screen.py`, `capture.py` | Capture card frames, OCR lines, the orange focus outline |
 | `console.py`, `filemanager.py`, `padd.py`, `webaccess.py` | The console's services |
+| `rig.py`, `mcp.py`, `payloadmgr.py`, `remoteplay.py` | Everything above as one object, with the safety rules built in; the MCP server the plugin starts; Payload Manager (8084); Remote Play through chiaki-ng |
+| `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
+| `recovery.py` | Getting the console going again unattended: services, the controller dialog, error dialogs, stuck games |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
+| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page; click a game for its draft, field by field, to copy into Playden's form |
 | `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |
 
@@ -34,6 +38,7 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 ```sh
 python -m unittest discover -s tests      # run before every commit; all must pass
 python -m playden_tester update           # rebuild the lists of games to test (no console needed)
+python -m playden_tester dashboard        # rebuild dashboard.html from the lists and results (no console needed)
 python -m playden_tester doctor           # check the console (PS5_HOST)
 python -m playden_tester campaign         # the long run; needs padd, the capture card (PS5_CAPTURE) and elfldr
 ```
@@ -49,9 +54,13 @@ between games when you can: a stop in the middle of a download leaves it paused 
   already redacted by Playden.
 - **Nothing is posted to Playden's tracker.** Issue drafts are written locally for the user to review.
 - **Uninstalls keep saves.** Check that "Delete saves too" stays Off; never press it.
-- **Don't uninstall the user's own games.** The campaign only evicts games it tested itself.
+- **Every game a campaign tests is uninstalled afterwards,** whatever the result, and even if it was installed before
+  the campaign. `--keep` is the only way out. Games the campaign hasn't tested are never removed.
+- **New tools go through `rig.py`,** so they get its checks: `session.v1` is refused on every route, deletes stay
+  inside `PS5_DELETE_ROOTS` and are dry runs by default, and input waits for a campaign to end.
+- **chiaki-ng's pairing key stays in chiaki-ng.** Don't read it from the registry: start chiaki-ng instead.
 - **Exact names before destructive actions.** The uninstall dialog check must stay exact apart from known OCR slips
-  (®/™/©): "Escape Simulator" must never match "Escape Simulator 2".
+  (®/™/©, capital I read as small L): "Escape Simulator" must never match "Escape Simulator 2".
 - Ask before pushing, opening or editing a PR.
 
 ## Playden 0.10 behaviour the code depends on
@@ -78,11 +87,13 @@ changing the navigation code. Don't guess at buttons.
 
 ## Data
 
-- `data/` is gitignored except `data/games-to-test.md` and `data/games-by-players.md`, the maintainer's lists. Other
+- `data/` is gitignored except `data/games-to-test.md`, `data/games-by-players.md` and `data/games-by-size.md`, the
+  maintainer's lists. Other
   users regenerate them with `library --controller full`, `library --controller partial` and `update`.
 - `data/reports/<app>-<name>/` holds each tested game's screenshots (`screenshot-30s.jpg`, `screenshot-90s.jpg`),
   `playden-report.zip`, `issue.md` and `result.json`. Not committed.
 - `games-to-test.json` is not committed: it holds playtime and family-sharing details.
+- `dashboard.html` is not committed: it holds the local issue drafts, log lines included.
 - Markdown lists are written with LF line endings (`newline="\n"`), so a run on Windows doesn't rewrite every line.
 
 ## Style

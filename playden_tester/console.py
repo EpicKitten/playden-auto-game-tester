@@ -11,6 +11,7 @@ import time
 
 from .filemanager import FileManagerError
 from .padd import PORT as PADD_PORT, Padd, PaddError
+from .payloadmgr import PayloadManager, PayloadManagerError
 
 PLAYDEN = "FAKE77031"
 HOMEBREW = "/data/homebrew"
@@ -21,6 +22,9 @@ REQUEST = "/data/playden/self-update/relaunch-title"
 RESULT = "/data/playden/self-update/relaunch.log"
 ELFLDR_PORT = 9021
 PADD_ELF = "/data/playden-tester/padd.elf"
+
+GAME_PROCESS = "eboot.bin"
+NOTHING_TO_CLOSE = "0xffffffff"  # what padd's close answers with no game process left
 
 TITLE_ID = re.compile(r"^[A-Z]{4}\d{5}$")
 RC = re.compile(r"(sceLncUtilLaunchApp|sceSystemServiceLaunchApp) rc=0x([0-9a-f]{8})")
@@ -51,6 +55,18 @@ class Console:
         self.host = host
         self.elfldr_port = elfldr_port
         self.padd = padd or Padd(host)
+        # Titles whose sandbox folder outlived the game. A folder like that says nothing, and the launch helper waits
+        # for it forever, so these go by process IDs: {title: game processes before it started, None when closed}.
+        # Not by how many: a game started from its tile replaces a suspended Playden, so the count stays the same.
+        self.left_behind = {}
+        self.tile_launch = None  # starts a title from its tile on the PS5's Home: set by whoever can drive the screen
+
+    def game_processes(self):
+        """The IDs of the game processes (Playden is one when suspended), or None when Payload Manager can't say."""
+        try:
+            return {p["pid"] for p in PayloadManager(self.host).processes() if p["name"] == GAME_PROCESS}
+        except (PayloadManagerError, OSError, ValueError, KeyError):
+            return None
 
     def has_padd(self):
         return self.port_open(PADD_PORT)
@@ -74,17 +90,33 @@ class Console:
         return True
 
     def close(self, title=None, timeout=20.0):
-        """Close the running game through padd and wait until its sandbox is gone."""
+        """Close the running game through padd and wait until its sandbox is gone. Some games (Iconoclasts) leave the
+        folder behind once closed, so a folder that stays only counts while the game's process does too; such a title
+        is remembered in left_behind."""
+        before = self.game_processes() if title else None
         try:
             self.padd.close_app()
         except PaddError as error:
+            if title and NOTHING_TO_CLOSE in str(error):
+                self._leftover(title)
+                return
             raise LaunchError(str(error)) from None
         if title:
             deadline = time.monotonic() + timeout
             while self.is_running(title):
                 if time.monotonic() > deadline:
+                    after = self.game_processes()
+                    if before is not None and after is not None and before - after:
+                        self._leftover(title)
+                        return
                     raise LaunchError(f"{title} still runs {timeout:.0f} s after it was closed")
                 time.sleep(1.0)
+            if title in self.left_behind:
+                self.left_behind[title] = None
+
+    def _leftover(self, title):
+        if title != PLAYDEN:  # Playden keeps its folder when suspended, and has its own way back
+            self.left_behind[title] = None
 
     def port_open(self, port, timeout=1.5):
         try:
@@ -103,7 +135,25 @@ class Console:
         return titles
 
     def is_running(self, title):
+        if title in self.left_behind:
+            before, now = self.left_behind[title], self.game_processes()
+            return before is not None and (now is None or bool(now - before))
         return title in self.running_titles()
+
+    def _launch_from_tile(self, title, timeout=30.0):
+        """Start a title whose folder stayed behind: the helper would wait for that folder for ever."""
+        before = self.game_processes()
+        if not self.tile_launch or before is None:
+            raise LaunchError(f"{title} has a leftover folder, and it can't be started from its Home tile here")
+        self.tile_launch(title)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            now = self.game_processes()
+            if now is not None and now - before:
+                self.left_behind[title] = before
+                return
+            time.sleep(1.0)
+        raise LaunchError(f"{title} has a leftover folder, and it did not start from its Home tile")
 
     def title_log(self, title):
         """The text of title-<title>.log, or '' when the title has none yet."""
@@ -125,6 +175,10 @@ class Console:
         """
         if not TITLE_ID.match(title):
             raise LaunchError(f"not a title ID: {title!r}")
+        if title in self.left_behind:
+            if title in self.running_titles():
+                return self._launch_from_tile(title)
+            del self.left_behind[title]  # the folder went after all
         if not self.port_open(self.elfldr_port):
             raise LaunchError(f"elfldr is not running on port {self.elfldr_port}; load it on the PS5 first")
         self.files.write_text(REQUEST, title + "\n")

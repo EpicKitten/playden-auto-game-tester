@@ -1,8 +1,9 @@
 """The lists of games still to test, written as Markdown for people to read: data/games-to-test.md in campaign order,
-and data/games-by-players.md sorted by Steam players in the last 30 days.
+data/games-by-players.md sorted by Steam players in the last 30 days, and data/games-by-size.md smallest first.
 
 A game is still to test when it is on the `library` list, has no test report on Playden's tracker or row in its
-compatibility list, is not a multiplayer game with anti-cheat, and the campaign has not tested it yet.
+compatibility list, and the campaign has not tested it yet. Multiplayer games with anti-cheat are tested too, even
+though most are expected to fail: a report that says so is still useful.
 """
 import json
 import re
@@ -29,10 +30,13 @@ partial controller support, and it's in the order the tester will run them.
 - Games that someone has already tested, either in a test report on \
 [Playden's issue tracker](https://github.com/leolobato/playden-ps5/issues) or on its \
 [compatibility list](https://github.com/leolobato/playden-ps5/blob/main/COMPATIBILITY.md).
-- Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar). Their online play doesn't work \
-under Playden.
+
+Multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and similar) are on the list. Most are expected to \
+fail, but a report that says so is still useful.
 
 **Order**
+
+Games are sorted by how many people played them on Steam in the last 30 days, most first, so testing them helps the most people. The numbers come from [SteamCharts](https://steamcharts.com). Games it has no numbers for come after the rest, sorted by how much disk space they need, smallest first. The size is what the game's Steam store page asks for; games whose page doesn't say come last. Games of the same size are sorted by the rest of this section.
 
 Games with full controller support come before games with partial support, whose menus or some parts may need a \
 mouse or keyboard. Each of those two groups is sorted first by its games' [ProtonDB](https://www.protondb.com) rating, which says how well they run on Linux \
@@ -51,6 +55,7 @@ DualShock, then the rest.
 
 **Columns**
 
+- **Size** is the disk space the game's Steam store page asks for.
 - **Year** is the first release on any platform.
 - **Steam app** is the game's ID on the Steam store: `https://store.steampowered.com/app/<ID>`.
 - **DualSense** says whether Steam lists DualSense support.
@@ -147,24 +152,33 @@ def _cell(text):
     return str(text).replace("|", "\\|")
 
 
-def to_test_rows(games, years, features):
-    """The rows of data/games-to-test.json: the list's rows plus DualSense support and release years."""
+def to_test_rows(games, years, features, sizes=None):
+    """The rows of data/games-to-test.json: the list's rows plus DualSense support, release years and the disk
+    space the store says the game needs (sizes: {app: GB})."""
     rows = []
     for g in games:
         rank = pad_rank((features.get(str(g["app"])) or {}).get("categories"))
         rows.append({**g, "dualsense": DUALSENSE_FIELD.get(rank, "no"), "release_year": release_year(g["app"], years),
-                     "steam_year": ((years.get("steam") or {}).get(str(g["app"])) or {}).get("year")})
+                     "steam_year": ((years.get("steam") or {}).get(str(g["app"])) or {}).get("year"),
+                     "size_gb": (sizes or {}).get(g["app"])})
     return rows
+
+
+def size_text(gb):
+    if not gb:
+        return "–"
+    return f"{gb * 1024:.0f} MB" if gb < 1 else f"{gb:g} GB"
 
 
 def to_test_markdown(rows, total, ports, tiers, state):
     """data/games-to-test.md. rows are in campaign order; ports is {app: [console names]}, tiers {app: tier}."""
     lines = [f"# Games still to test ({len(rows)} of {total})", "", TO_TEST_INTRO, "",
-             "| # | Game | Year | Steam app | DualSense | Console versions | ProtonDB | Note |",
-             "|---|---|---|---|---|---|---|---|"]
+             "| # | Game | Size | Year | Steam app | DualSense | Console versions | ProtonDB | Note |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for number, row in enumerate(rows, 1):
         tier = tiers.get(row["app"]) or "unknown"
-        lines.append(f"| {number} | {_cell(row['title'].strip())} | {row.get('release_year') or '–'} | {row['app']} | "
+        lines.append(f"| {number} | {_cell(row['title'].strip())} | {size_text(row.get('size_gb'))} | "
+                     f"{row.get('release_year') or '–'} | {row['app']} | "
                      f"{PADS.get(_pad(row), '–')} | {', '.join(ports.get(row['app']) or []) or '–'} | "
                      f"{'–' if tier == 'unknown' else tier.capitalize()} | {note(row, state)} |")
     return "\n".join(lines) + "\n"
@@ -172,6 +186,27 @@ def to_test_markdown(rows, total, ports, tiers, state):
 
 def _pad(row):
     return {"yes": DUALSENSE, "dualshock": DUALSHOCK}.get(row.get("dualsense"))
+
+
+def by_size_markdown(rows, ports):
+    """data/games-by-size.md: the rows of games-to-test (in campaign order) by the disk space they need, smallest
+    first; games whose store page doesn't say go last, in test order."""
+    order = {row["app"]: number for number, row in enumerate(rows, 1)}
+    known = [row for row in rows if row.get("size_gb")]
+    ranked = sorted(known, key=lambda row: row["size_gb"]) + [row for row in rows if not row.get("size_gb")]
+    lines = [f"# Games still to test, by size ({len(rows)} games)", "",
+             "The same games as [games-to-test.md](games-to-test.md), sorted by how much disk space each one needs, "
+             "smallest first, so the most games get tested in the least time. To run a campaign in this order, use "
+             "`campaign --players ''`.", "",
+             "The size is what the game's Steam store page asks for, so the real install can differ. "
+             f"{len(rows) - len(known)} of the games' pages don't say, so they're at the bottom, in test order.", "",
+             "| # | Game | Size | Year | Steam app | DualSense | Console versions | Test order |",
+             "|---|---|---|---|---|---|---|---|"]
+    for number, row in enumerate(ranked, 1):
+        lines.append(f"| {number} | {_cell(row['title'].strip())} | {size_text(row.get('size_gb'))} | "
+                     f"{row.get('release_year') or '–'} | {row['app']} | {PADS.get(_pad(row), '–')} | "
+                     f"{', '.join(ports.get(row['app']) or []) or '–'} | {order[row['app']]} |")
+    return "\n".join(lines) + "\n"
 
 
 def by_players_markdown(rows, players, ports, read_on):

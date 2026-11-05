@@ -4,9 +4,11 @@ Playden has no remote API for downloads or uninstalls, and doing them behind its
 wrong, so the tester uses its UI the way a player would. Every step reads the screen before pressing anything that
 changes something: a wrong focus backs out instead of pressing on.
 """
+import re
 import difflib
 import time
 
+from .padd import PaddError
 from .screen import Screen, normalize
 
 # The PS5 system keyboard Playden's search opens (ABC page). The focus starts on G.
@@ -52,25 +54,35 @@ def queued(button):
 def same_name(a, b):
     """The same game name, allowing only OCR slips (a letter read wrong, one dropped or added in the middle).
     A name that is the start of the other is a different game: "Half-Life" is not "Half-Life 2"."""
-    # OCR reads Playden's Q as O ("Oueue", "Ouiplash").
-    x, y = normalize(a).replace("q", "o"), normalize(b).replace("q", "o")
-    if x == y:
+    # OCR reads Playden's Q as O ("Oueue", "Ouiplash"), and ™, ® and © as letters ("BatmanTM", "LEGOO").
+    x = normalize(a).replace("q", "o")
+    if any(x == normalize(v).replace("q", "o") for v in symbol_readings(b)) or             any(normalize(v).replace("q", "o") == normalize(b).replace("q", "o") for v in symbol_readings(a)):
         return True
+    y = normalize(b).replace("q", "o")
     if not x or not y or x.startswith(y) or y.startswith(x):
         return False
+    if [c for c in x if c.isdigit()] != [c for c in y if c.isdigit()]:
+        return False  # "Sniper Elite 3" is not "Sniper Elite 4", however close the letters
     return abs(len(x) - len(y)) <= 1 and difflib.SequenceMatcher(None, x, y).ratio() >= 0.9
+
+
+def symbol_readings(name):
+    """The name with each ™, ® and © as OCR may read it: dropped, or as a letter or two."""
+    names = {name}
+    for symbol in "®™©":
+        names = {n.replace(symbol, reading) for n in names for reading in ("", "o", "r", "c", "tm")}
+    return names
 
 
 def dialog_names(lines, name):
     """Does the uninstall dialog ("<name>. Frees about 67 MB. ...") name this game and no longer one? OCR slips
     are allowed: "LEGO® Builder's Journey" reads as "LEGOO Builder's Journey"."""
-    text = normalize(" ".join(l.text for l in lines))
-    # Exact, apart from the symbols OCR reads as a letter or drops: anything looser would let "Escape Simulator"
-    # match "Escape Simulator 2" and uninstall the wrong game.
-    names = {name}
-    for symbol in "®™©":
-        names = {n.replace(symbol, reading) for n in names for reading in ("", "o", "r", "c", "tm")}
-    return any(normalize(n) + "frees" in text for n in names)
+    # OCR also takes a capital I for a small L ("Plague lnc: Evolved"), so the two count as one letter here.
+    fold = lambda text: normalize(text).replace("l", "i")
+    text = fold(" ".join(l.text for l in lines))
+    # Exact, apart from these slips and the symbols OCR reads as a letter or drops: anything looser would let
+    # "Escape Simulator" match "Escape Simulator 2" and uninstall the wrong game.
+    return any(fold(n) + "frees" in text for n in symbol_readings(name))
 
 
 # Letters, digits and space only: the key shown as "-" typed a comma ("Half,life 2"), and the typed-text check
@@ -91,13 +103,23 @@ def description_text(lines):
 
 def search_text(name, limit=28):
     """What to type for a game. Playden keeps a game when the search is part of its title as written (case
-    folded), so this is the start of the title, up to the first character the ABC page has no key for."""
-    text = ""
-    for c in name.upper():
-        if c not in TYPEABLE or len(text) >= limit:
+    folded), so this is the start of the title, up to the first character the ABC page has no key for. A title
+    that starts with characters the page has none for ("东方夜雀食堂 - Touhou Mystia's Izakaya") uses its first
+    typeable run of at least 4 letters instead ("TOUHOU MYSTIA")."""
+    runs, text = [], ""
+    for c in name.upper() + "|":
+        if c in TYPEABLE and len(text) < limit:
+            text += c
+            continue
+        if text.strip():
+            runs.append(text.strip())
+        if c not in TYPEABLE:
+            text = ""
+        else:
             break
-        text += c
-    return text.rstrip()
+    if runs and name.upper().startswith(runs[0]):
+        return runs[0]
+    return next((run for run in runs if len(run.replace(" ", "")) >= 4), "")
 
 
 def predict_results(library, typed):
@@ -210,6 +232,30 @@ class PlaydenUI:
                             break
                         time.sleep(2)
                     return True
+                self.press(direction, gap=1.2)
+        return False
+
+    def start_from_ps_home(self, name, steps=14):
+        """Go to the PS5's Home, find the game's tile by its exact name and press it. True once it was pressed."""
+        try:
+            self.pad.home()  # refused when nothing runs: Home is showing already
+        except PaddError:
+            pass
+        time.sleep(3.0)
+        for direction in ("right", "left"):
+            for _ in range(steps if direction == "right" else steps * 2):
+                for _ in range(3):  # a game's page slides into place for about 4 s, its name moving as it does
+                    lines = self.read(0.8)[0]
+                    shown = [l.text for l in lines if 200 < l.y < 320 or 680 < l.y < 760]
+                    # The menu of a tile also holds Delete, so Cross only goes to the tile's own page.
+                    ready = any(normalize(l.text) == "playgame" for l in lines) and not any(
+                        normalize(l.text) == "delete" for l in lines)
+                    if ready and any(same_name(text, name) for text in shown):
+                        self.press("cross", gap=3.0)
+                        return True
+                    if not ready:
+                        break
+                    time.sleep(1.0)
                 self.press(direction, gap=1.2)
         return False
 
@@ -457,10 +503,10 @@ class PlaydenUI:
         if Screen.has(lines, "Install game"):
             # Playden 0.10: a sheet that says where the game goes, with Install ("Starts the download") focused.
             # Only console storage is confirmed; a game headed anywhere else is left alone.
-            sheet, box, _ = self.read(0.3, (980, 380, 1900, 760))
+            sheet, box, _ = self.read(0.3, (980, 230, 1900, 900))  # taller with a Language row
             focused = normalize(" ".join(l.text for l in Screen.inside(sheet, box)))
             if not any("toconsolestorage" in normalize(l.text) for l in lines) \
-                    or not focused.startswith("install") or "startsthedownload" not in focused:
+                    or "install" not in focused.replace("startsthedownload", "") or "startsthedownload" not in focused:
                 self.press("circle")
                 raise UIError(f"{game.title}: the install sheet is not Install to Console storage: "
                               f"{[l.text for l in lines][:12]}")
@@ -478,9 +524,8 @@ class PlaydenUI:
             time.sleep(3)
         raise UIError(f"{game.title}: no download folder {game.app} within {timeout} s of Install")
 
-    def uninstall(self, name, files, app, title=None, timeout=180):
-        """Settings > Storage > Installed games: tick the game by name and uninstall it, keeping its saves.
-        Checks the dialog names the game and the button is Uninstall, then that its files are gone."""
+    def _storage_page(self):
+        """Settings > Storage, with the focus on the page's rows."""
         self.tab(4)
         self.expect("Storage", "Downloads", "Updates", settle=1.0)
         for _ in range(3):
@@ -501,13 +546,50 @@ class PlaydenUI:
         else:
             raise UIError("could not reach Storage")
         self.press("right", gap=0.6)
+
+    def _storage_row(self, words):
+        """Move down Settings > Storage to the row whose text has words; what the row says."""
         for _ in range(6):
             lines, box, _ = self.read(0.6, (430, 190, 1840, 960))
-            if any("installedgames" in normalize(l.text) for l in Screen.inside(lines, box)):
-                break
+            inside = Screen.inside(lines, box)
+            if any(words in normalize(l.text) for l in inside):
+                return " ".join(l.text for l in inside)
             self.press("down")
-        else:
-            raise UIError("could not focus Installed games")
+        raise UIError(f"could not focus {words}")
+
+    def storage_free(self):
+        """GB free as Playden shows it, from Settings > Storage ("859.7 GB used - 77.4 GB free of 937.0 GB")."""
+        self._storage_page()
+        for line in self.read(0.6)[0]:
+            found = re.search(r"([\d.,]+)\s*GB free", line.text)
+            if found:
+                return float(found.group(1).replace(",", "."))
+        return None
+
+    def clean_unused(self):
+        """Settings > Storage > Unused game settings data > Clean up, which removes only what no game is using.
+        It presses only a focused item that says Clean up, and backs out of anything else; Kept game data, which
+        holds saves, is never opened. What the row said before."""
+        self._storage_page()
+        row = self._storage_row("unusedgamesettings")
+        self.press("cross", gap=1.5)
+        for _ in range(2):
+            lines, box, _ = self.read(0.8)
+            focused = normalize(" ".join(l.text for l in Screen.inside(lines, box)))
+            if "cleanup" not in focused or "save" in focused or "kept" in focused:
+                self.press("circle")
+                raise UIError(f"Clean up was not the focused item ({' '.join(l.text for l in lines)[:160]})")
+            self.press("cross", gap=2.5)
+            if not Screen.has(self.read(0.8)[0], "Clean up"):
+                return row
+        self.press("circle")
+        raise UIError("Clean up is still on screen after pressing it")
+
+    def uninstall(self, name, files, app, title=None, timeout=180):
+        """Settings > Storage > Installed games: tick the game by name and uninstall it, keeping its saves.
+        Checks the dialog names the game and the button is Uninstall, then that its files are gone."""
+        self._storage_page()
+        self._storage_row("installedgames")
         self.press("cross", gap=1.5)
         self.expect("Select games to uninstall", settle=0.5)
         row, last, repeats = None, None, 0

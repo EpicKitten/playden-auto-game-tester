@@ -3,6 +3,7 @@
 The PS5 must have HDCP off (Settings > System > HDMI > Enable HDCP), or the card gets a blank picture.
 Only one program can use the card at a time: close the Camera app, OBS and the like first.
 """
+import re
 import os
 import shutil
 import subprocess
@@ -94,6 +95,34 @@ class Capture:
         size = PROBE_W * PROBE_H
         frames = [raw[i:i + size] for i in range(0, len(raw) - size + 1, size)]
         return check_frames(frames)
+
+
+    def frame(self):
+        """One small grey frame, to compare with another."""
+        return self._run(["-vf", f"scale={PROBE_W}:{PROBE_H},format=gray", "-frames:v", "1", "-f", "rawvideo", "-"],
+                         timeout=20)
+
+    def clip(self, path, seconds):
+        """Record a small video of the screen; this takes as long as the clip."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._run(["-t", str(seconds), "-vf", "scale=960:-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "30",
+                   str(path)], timeout=seconds + 30)
+        return path
+
+    def audio_level(self, seconds=3.0):
+        """Mean loudness of the card's sound in dB (about -91 is silence), or None when it can't say."""
+        if sys.platform != "win32":
+            return None
+        device = f"audio=HDMI ({self.device})"
+        try:
+            done = subprocess.run([self.ffmpeg, "-hide_banner", "-f", "dshow", "-i", device, "-t", str(seconds),
+                                   "-af", "volumedetect", "-f", "null", "-"], capture_output=True,
+                                  timeout=seconds + 20)
+        except subprocess.TimeoutExpired:
+            return None
+        found = re.search(r"mean_volume: (-?[\d.]+) dB", done.stderr.decode(errors="replace"))
+        return float(found.group(1)) if found else None
 
 
 def list_devices(ffmpeg=None):

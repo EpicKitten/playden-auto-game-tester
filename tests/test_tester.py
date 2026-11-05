@@ -342,6 +342,8 @@ class NameMatchTest(unittest.TestCase):
         self.assertTrue(dialog_names(dialog("Balatro. Frees about 67 MB. Their files and PS5 titles are"), "Balatro"))
         self.assertFalse(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life"))
         self.assertTrue(dialog_names(dialog("Half-Life 2. Frees about 5.8 GB. Their files and PS5"), "Half-Life 2"))
+        self.assertTrue(dialog_names(dialog("Plague lnc: Evolved. Frees about 1.5 GB."), "Plague Inc: Evolved"))
+        self.assertFalse(dialog_names(dialog("Escape Simulator 2. Frees about 3 GB."), "Escape Simulator"))
 
 
 class SearchTest(unittest.TestCase):
@@ -544,6 +546,28 @@ class PrepareStateTest(unittest.TestCase):
         self.assertEqual(prepare_state(log, 23867)[0], "failed")
         self.assertEqual(prepare_state(log, 70), (None, ""))
 
+    def test_same_name_allows_ocr_slips_only(self):
+        from playden_tester.playden_ui import same_name
+        self.assertTrue(same_name("BatmanTM: Arkham Origins", "Batman™: Arkham Origins"))
+        self.assertTrue(same_name("Ouiplash", "Quiplash"))
+        self.assertTrue(same_name("LEGOO Batman", "LEGO® Batman"))
+        self.assertTrue(same_name("Sniper EIite 4", "Sniper Elite 4"))
+        self.assertFalse(same_name("Sniper Elite 3", "Sniper Elite 4"))
+        self.assertFalse(same_name("Half-Life", "Half-Life 2"))
+        self.assertFalse(same_name("Escape Simulator 2", "Escape Simulator"))
+
+    def test_reserved_title(self):
+        from playden_tester.campaign import reserved_title
+        log = "\n".join([
+            "2026-11-03T18:45:59Z prepare reserved app=1696770 title=FAKE78023 ms=1436",
+            "2026-11-03T18:49:37Z prepare reserved app=2386720 title=FAKE78024 ms=1202",
+            "2026-11-03T23:13:00Z prepare reserved app=1584090 title=FAKE78024 ms=1300",
+        ])
+        self.assertEqual(reserved_title(log, 1584090), "FAKE78024")
+        self.assertEqual(reserved_title(log, 1696770), "FAKE78023")
+        self.assertIsNone(reserved_title(log, 2386720))  # its title went to another game later
+        self.assertIsNone(reserved_title(log, 70))
+
 
 class ListsTest(unittest.TestCase):
     def test_still_to_test(self):
@@ -579,6 +603,50 @@ class ListsTest(unittest.TestCase):
             games = load_list(paths, None, None, {1: tier_rank("gold"), 3: tier_rank("platinum")})
         self.assertEqual([(g.app, g.controller) for g in games], [(4, "partial"), (1, "full"), (2, "full"),
                                                                  (3, "partial")])
+
+    def test_smallest_install_first(self):
+        from playden_tester.campaign import sort_rows
+        from playden_tester.lists import size_text
+        from playden_tester.protondb import tier_rank
+        from playden_tester.sizes import install_size_gb
+        self.assertEqual(install_size_gb({"minimum": "<strong>Memory:</strong> 4 GB RAM<br>"
+                                                     "<strong>Storage:</strong> 500 MB available space"}), 0.4883)
+        self.assertEqual(install_size_gb("<li><strong>Hard Drive Space:</strong>20 GB<br>"), 20.0)
+        self.assertIsNone(install_size_gb("<strong>Memory:</strong> 8 GB RAM"))
+        rows = [{"app": 1, "controller": "full"}, {"app": 2, "controller": "partial"}, {"app": 3, "controller": "full"},
+                {"app": 4, "controller": "full"}, {"app": 5, "controller": "full", "installed": True}]
+        sizes = {1: 20.0, 2: 0.5, 3: 4.0, 5: 60.0}
+        # Installed first; then smallest first, whatever the controller support or rating; no stated size last.
+        self.assertEqual([r["app"] for r in sort_rows(rows, None, None, {1: tier_rank("platinum")}, sizes)],
+                         [5, 2, 3, 1, 4])
+        self.assertEqual([size_text(gb) for gb in (0.49, 4.0, 19.6, None)], ["502 MB", "4 GB", "19.6 GB", "–"])
+
+    def test_by_size_list(self):
+        from playden_tester.lists import by_size_markdown
+        rows = [{"app": 1, "title": "Big", "size_gb": 150.0}, {"app": 2, "title": "Unknown"},
+                {"app": 3, "title": "Tiny", "size_gb": 0.5}, {"app": 4, "title": "Also unknown", "size_gb": None}]
+        lines = [l for l in by_size_markdown(rows, {}).splitlines() if l.startswith("| ") and "Game" not in l]
+        self.assertEqual([l.split(" | ")[1] for l in lines], ["Tiny", "Big", "Unknown", "Also unknown"])
+        self.assertEqual(lines[0].split(" | ")[2], "512 MB")
+        self.assertTrue(lines[0].endswith("| 3 |"))  # its place in the test order
+
+    def test_most_played_first(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from playden_tester.campaign import sort_rows
+        from playden_tester.players import load_players
+        rows = [{"app": 1, "controller": "full"}, {"app": 2, "controller": "full"}, {"app": 3, "controller": "full"},
+                {"app": 4, "controller": "full"}, {"app": 5, "controller": "full", "installed": True}]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "players.json"
+            path.write_text(json.dumps({"read_on": "2026-11-03", "apps": {"1": {"avg": 5.5, "peak": 9}, "2": None,
+                                                                          "3": {"avg": 900.0, "peak": 2000}}}))
+            players = load_players(path)
+        self.assertEqual(players, {1: 5.5, 3: 900.0})
+        # Installed first; then most played, whatever the size; no numbers last, smallest first among those.
+        sizes = {1: 1.0, 2: 80.0, 3: 150.0, 4: 2.0, 5: 60.0}
+        self.assertEqual([r["app"] for r in sort_rows(rows, None, None, None, sizes, players)], [5, 3, 1, 4, 2])
 
     def test_partial_from_store_category(self):
         import io
@@ -647,14 +715,24 @@ class StoreFeaturesTest(unittest.TestCase):
         self.assertEqual(pad_rank(["DualShock Controller Support"]), DUALSHOCK)
         self.assertEqual(pad_rank(None), NO_PAD)
         games = [{"app": 1, "title": "Notice"}, {"app": 2, "title": "Deck"}, {"app": 3, "title": "VAC solo"},
-                 {"app": 4, "title": "Listed"}, {"app": 5, "title": "Clean"}]
+                 {"app": 4, "title": "Listed"}, {"app": 5, "title": "Clean"}, {"app": 6, "title": "Campaign"},
+                 {"app": 7, "title": "VAC online"}, {"app": 8, "title": "Mixed"}, {"app": 9, "title": "Shooter - Multiplayer"}]
         cache = {"1": {"categories": ["Online PvP"], "notice": ["Easy Anti-Cheat"], "deck_anticheat": False},
                  "2": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": True},
                  "3": {"categories": ["Single-player", "Valve Anti-Cheat enabled"], "notice": [], "deck_anticheat": False},
                  "4": {"categories": ["Single-player", "Co-op"], "notice": [], "deck_anticheat": False},
-                 "5": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": False}}
-        rows = {row["app"]: row for row in multiplayer_anticheat(games, cache, {4: ["BattlEye"]})}
-        self.assertEqual(sorted(rows), [1, 2, 4])  # 3 has no multiplayer
+                 "5": {"categories": ["Multi-player"], "notice": [], "deck_anticheat": False},
+                 "6": {"categories": ["Single-player", "Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False},
+                 "7": {"categories": ["Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False},
+                 "8": {"categories": ["Single-player", "Multi-player"], "notice": [], "deck_anticheat": False},
+                 "9": {"categories": ["Single-player", "Multi-player", "Valve Anti-Cheat enabled"], "notice": [],
+                       "deck_anticheat": False}}
+        awacy = {4: ["BattlEye"], 6: ["FairFight", "PunkBuster"], 8: ["VAC", "Treyarch Anti-Cheat"]}
+        rows = {row["app"]: row for row in multiplayer_anticheat(games, cache, awacy)}
+        # 3 has no multiplayer; 6 has a single-player mode and only online anti-cheat
+        self.assertEqual(sorted(rows), [1, 2, 4, 7, 8, 9])
         self.assertEqual(rows[1]["anticheats"], ["Easy Anti-Cheat"])
         self.assertEqual(rows[4]["anticheats"], ["BattlEye"])
         from playden_tester.storefeatures import anticheats

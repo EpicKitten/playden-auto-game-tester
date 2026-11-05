@@ -36,8 +36,9 @@ def size_gb(text):
 
 class Campaign:
     def __init__(self, console, ui, capture, settings, out, meta, say=print, keep=False, max_gb=None,
-                 reserve_gb=15.0, reports=None, web=None):
+                 reserve_gb=15.0, reports=None, web=None, healer=None):
         self.console, self.ui, self.files = console, ui, console.files
+        self.healer = healer  # a recovery.Healer: real free space, and getting going again after a failure
         self.capture = capture
         # A folder per game in reports: its screenshot and Playden's report zip from web (a WebAccess).
         self.reports, self.web = Path(reports) if reports else None, web
@@ -50,6 +51,7 @@ class Campaign:
         self.state_path = self.out / "campaign.json"
         self.state = json.loads(self.state_path.read_text(encoding="utf-8")) if self.state_path.exists() else {}
         self.library = None  # every owned game (library cache), to predict Library search results
+        self.heals = 0
 
     def save(self):
         self.state_path.write_text(json.dumps(self.state, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -64,11 +66,24 @@ class Campaign:
 
     def installed_title(self, game):
         """The game's PS5 title, by the name in its param.json. Not by title logs: Playden reuses the IDs of
-        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log."""
+        uninstalled titles and their old logs stay, so FAKE78012 held Half-Life 2 with Balatro's log.
+        First by Playden 0.10's runtime.log, which names the title it reserved for the app: the title's name can
+        differ from Steam's ("Touhou Mystia's Izakaya" for "东方夜雀食堂 - Touhou Mystia's Izakaya")."""
+        reserved = reserved_title(self.runtime_log(), game.app)
+        if reserved and reserved in self.titles():
+            return reserved
         for title in catalog.games(self.files, read_logs=False):
             if same_name(title.name, game.title):
                 return title.title
         return None
+
+    def installed_name(self, title, fallback):
+        """The name Playden gave an installed title (its param.json), as Installed games lists it; it can differ
+        from Steam's ("Touhou Mystia's Izakaya" for "东方夜雀食堂 - Touhou Mystia's Izakaya")."""
+        for game in catalog.games(self.files, read_logs=False):
+            if game.title == title and game.name:
+                return game.name
+        return fallback
 
     def playden_front(self):
         """Playden open, on a screen with its tabs."""
@@ -102,26 +117,41 @@ class Campaign:
         titles = self.titles()
         return sorted((e for e in entries if e["ps5_title"] in titles), key=lambda e: e.get("updated", ""))
 
+    def stuck(self):
+        """Tested games whose uninstall failed and that are still installed: tried again when room runs out."""
+        titles = self.titles()
+        return [e for e in self.state.values() if e.get("uninstall_error") and e.get("uninstalled") is not True
+                and e.get("status") not in (None, "testing", "error", "skipped", "deferred")
+                and e.get("ps5_title") in titles]
+
     def make_room(self, game, need_gb, free_gb):
         """Uninstall tested games until need_gb fits with reserve_gb left free. The free space afterwards, read
         again from the game's page; None when it cannot fit."""
-        for entry in self.evictable():
+        for entry in [*self.evictable(), *self.stuck()]:
             self.say(f"[{game.app}] {game.title}: needs {need_gb:.1f} GB, {free_gb:.1f} GB free; "
                      f"uninstalling tested {entry['title']}")
             self.ui.press("circle")
             self.playden_front()
             try:
-                self.ui.uninstall(entry["title"], self.files, entry["app"], entry["ps5_title"])
-                entry.update(uninstalled=True, evicted_for=game.app, updated=time.strftime("%Y-%m-%d %H:%M:%S"))
+                self.ui.uninstall(self.installed_name(entry["ps5_title"], entry["title"]), self.files, entry["app"],
+                                  entry["ps5_title"])
+                entry.update(uninstalled=True, evicted_for=game.app, uninstall_error="",
+                             updated=time.strftime("%Y-%m-%d %H:%M:%S"))
             except UIError as error:
                 entry.update(uninstall_error=str(error))
             self.save()
             self.playden_front()
             lines = self.ui.open_game(game, self.library)
-            free_gb = free_space(lines) or free_gb
+            free_gb = self.free_now(lines) or free_gb
             if free_gb - self.reserve_gb >= need_gb:
                 return free_gb
         return None
+
+    def free_now(self, lines):
+        """GB free: the console's real number when the ps5df payload can give it, else what Playden's page says,
+        which has been far off on a nearly full disk."""
+        real = self.healer.free_gb() if self.healer else None
+        return free_space(lines) if real is None else real
 
     def download(self, game):
         """Install the game through Playden, making room first when it does not fit, and wait until it can be
@@ -144,7 +174,7 @@ class Campaign:
         if self.max_gb and gb and gb > self.max_gb:
             self.ui.press("circle")
             raise SkipGame(f"{gb:.1f} GB is over the {self.max_gb:g} GB limit")
-        free = free_space(lines)
+        free = self.free_now(lines)
         need = (gb or 0) * INSTALL_OVERHEAD
         if free is not None and free - self.reserve_gb < need:
             if self.make_room(game, need, free) is None:
@@ -178,6 +208,10 @@ class Campaign:
             button = " ".join(l.text for l in lines if 640 < l.y < 720 and l.x < 1240)
             if "play" in button.lower() and "set" in button.lower():
                 return self.set_up(game)
+            if "failed" in button.lower():
+                self.ui.press("circle")
+                raise DownloadFailed(f"{game.title}: Playden's download failed ({button.strip()!r}); its Queue row "
+                                     "says why")
             if "queued" in button.lower() and time.monotonic() - started < QUEUE_WAIT:
                 # Waiting behind another download (Playden 0.10's queue): its own time starts once it runs.
                 deadline = max(deadline, time.monotonic() + limit)
@@ -277,6 +311,8 @@ class Campaign:
             (folder / old).unlink(missing_ok=True)  # from an earlier test of the same game
         try:
             copied = False
+            if result.clip and (self.out / result.clip).exists():
+                shutil.copyfile(self.out / result.clip, folder / "start-of-game.mp4")
             for taken, name in ((result.first_screenshot, SCREENSHOTS[0]), (result.screenshot, SCREENSHOTS[1])):
                 if taken and (self.out / taken).exists():
                     shutil.copyfile(self.out / taken, folder / name)
@@ -367,7 +403,10 @@ class Campaign:
             self.show_overlay(game)
         except (UIError, LaunchError) as error:
             self.say(f"[{game.app}] {game.title}: Playden not on screen before the test: {error}")
+        self.console.tile_launch = lambda _: self._start_from_tile(game)
         result = self.runner.run(catalog.Game(title, game.title, game.app))
+        if result.status == LAUNCH_FAILED and "leftover folder" in result.detail:
+            raise UIError(result.detail)  # the tester's trouble, not the game's: it is tested again
         if result.status == LAUNCH_FAILED and "0x80940031" in result.detail:
             # Seen now and then on Playden 0.10 right after an install (Escape Simulator 2, The Mermaid Mask); the
             # same title started on the next try.
@@ -396,12 +435,12 @@ class Campaign:
         self.save_report(game, title, result, versions, self.out / "logs" / zip_name)
         self.mark(game, status=result.status, screen=result.screen.get("verdict", ""), detail=result.detail,
                   issue=str(issue.relative_to(self.out)) if issue else "", logs=f"logs/{zip_name}")
-        if not self.keep and result.status != LAUNCH_FAILED:
-            # A failed uninstall leaves the test result as it is. Some games have a PS5 title and files but are
+        if not self.keep:
+            # Every tested game goes, whatever the result and whoever installed it. A failed uninstall leaves the test result as it is. Some games have a PS5 title and files but are
             # missing from Playden's Installed games (Hotline Miami, Aperture Desk Job on this console).
             try:
                 self.playden_front()
-                how = self.ui.uninstall(game.title, self.files, game.app, title)
+                how = self.ui.uninstall(self.installed_name(title, game.title), self.files, game.app, title)
                 self.mark(game, uninstalled=True, uninstall_error="")
                 self.say(f"[{game.app}] {game.title}: uninstalled (saves kept"
                          f"{'; files still being deleted' if how != 'done' else ''})")
@@ -409,6 +448,11 @@ class Campaign:
                 self.mark(game, uninstalled=False, uninstall_error=str(error))
                 self.say(f"[{game.app}] {game.title}: tested, but not uninstalled: {error}")
         return result
+
+    def _start_from_tile(self, game):
+        self.say(f"[{game.app}] {game.title}: its title has a leftover folder; starting it from its Home tile")
+        if not self.ui.start_from_ps_home(game.title):
+            raise LaunchError(f"{game.title} has a leftover folder, and its Home tile was not found")
 
     def recover(self):
         """Before going on after a stop: close a game left running, and give back the test result of games whose
@@ -445,7 +489,12 @@ class Campaign:
         todo = [g for g in games if str(g.app) not in done][:limit]
         self.say(f"{len(todo)} games to test ({len(done)} already done); results in {self.out}")
         failures = 0
+        stop = self.out / "stop"  # 'campaign_stop' asks for this: no download is left paused
         for number, game in enumerate(todo, 1):
+            if stop.exists():
+                stop.unlink()
+                self.say("Stopping: asked to stop before the next game.")
+                return 0
             self.say(f"=== {number}/{len(todo)}: {game.title} (app {game.app})")
             try:
                 result = self.run_one(game)
@@ -453,11 +502,17 @@ class Campaign:
                 self.say(f"[{game.app}] {game.title}: {error}")
                 self.mark(game, status="error", detail=str(error))
                 failures += 1
+                if self._heal(f"{game.title}: {error}"):
+                    failures = 0
+                    continue
                 if failures >= 3:
                     self.say("Stopping: three games in a row went wrong. Check the PS5, then run again to go on.")
                     return 3
                 continue
             if result and result.status == STUCK:
+                if self._heal(f"{game.title} could not be closed"):
+                    self.remove_download(game)  # closed now, so it goes like any other tested game
+                    continue
                 self.say("Stopping: a game could not be closed.")
                 return 2
             failures = failures + 1 if result and result.status == LAUNCH_FAILED else 0
@@ -465,6 +520,13 @@ class Campaign:
                 self.say("Stopping: launches keep failing. Check that kstuff and ShadowMountPlus are loaded.")
                 return 3
         return 0
+
+    def _heal(self, reason):
+        """Try to get going again after a failure; a campaign that keeps needing this stops, so someone looks."""
+        if not self.healer or self.heals >= MAX_HEALS:
+            return False
+        self.heals += 1
+        return self.healer.heal(reason)
 
 
 class SkipGame(Exception):
@@ -482,6 +544,7 @@ class DeferGame(Exception):
 # In a report folder: 30 s after the start, just before the close (90 s), or the screen after a game that quit.
 SCREENSHOTS = ["screenshot-30s.jpg", "screenshot-90s.jpg", "screenshot.jpg"]
 INSTALL_OVERHEAD = 1.25  # the download plus preparation (bottle, shader caches) over the size Playden shows
+MAX_HEALS = 10  # recoveries in one run
 QUEUE_WAIT = 6 * 3600  # the longest a game waits in Playden's download queue before it counts as stuck
 
 
@@ -491,6 +554,18 @@ def free_space(lines):
         if "free" in line.text.lower() and "install" in line.text.lower():
             return size_gb(line.text)
     return None
+
+
+def reserved_title(runtime_log, app):
+    """The PS5 title Playden last reserved for an app ("prepare reserved app=<app> title=FAKE78024"), or None.
+    None as well when a later reservation gave that title to another app: Playden reuses the IDs."""
+    found = None
+    for match in re.finditer(r" prepare reserved app=(\d+) title=(\w+)", runtime_log):
+        if int(match[1]) == app:
+            found = match[2]
+        elif match[2] == found:
+            found = None
+    return found
 
 
 def prepare_state(runtime_log, app):
@@ -524,23 +599,26 @@ def read_lists(paths):
     return rows
 
 
-def sort_rows(rows, ranks=None, pads=None, tiers=None):
-    """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then games with
-    full controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank},
-    best rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad
-    rank ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
+def sort_rows(rows, ranks=None, pads=None, tiers=None, sizes=None, players=None):
+    """Rows of a `library` list in campaign order. Installed games first (no download to wait for), then, with
+    players ({app: average players}), the most played first and games with no numbers after the rest. Then, with
+    sizes ({app: GB}), the smallest install first and games with no stated size after the rest. Then games with full
+    controller support before partial ones (whose menus may need a mouse), then by ProtonDB tier ({app: rank}, best
+    rated first; see protondb.py), then by console rank ({app: rank}, lower first; see ports.py), then by pad rank
+    ({app: rank}: DualSense games first; see storefeatures.py), keeping the list's order otherwise."""
     from .protondb import UNRATED
     from .storefeatures import NO_PAD
-    ranks, pads, tiers = ranks or {}, pads or {}, tiers or {}
-    return sorted(rows, key=lambda row: (not row.get("installed"), row.get("controller") == "partial",
-                                         tiers.get(row["app"], UNRATED), ranks.get(row["app"], 0),
-                                         pads.get(row["app"], NO_PAD)))
+    ranks, pads, tiers, sizes, players = ranks or {}, pads or {}, tiers or {}, sizes or {}, players or {}
+    return sorted(rows, key=lambda row: (not row.get("installed"), -players.get(row["app"], 0),
+                                         sizes.get(row["app"], float("inf")) if sizes else 0,
+                                         row.get("controller") == "partial", tiers.get(row["app"], UNRATED),
+                                         ranks.get(row["app"], 0), pads.get(row["app"], NO_PAD)))
 
 
-def load_list(paths, ranks=None, pads=None, tiers=None):
+def load_list(paths, ranks=None, pads=None, tiers=None, sizes=None, players=None):
     """The games of one or more `library` lists (JSON) as OwnedGame-like objects, in campaign order (see
     sort_rows)."""
     from .library import OwnedGame
-    rows = sort_rows(read_lists(paths), ranks, pads, tiers)
+    rows = sort_rows(read_lists(paths), ranks, pads, tiers, sizes, players)
     fields = set(OwnedGame.__dataclass_fields__)
     return [OwnedGame(**{k: v for k, v in row.items() if k in fields}) for row in rows]
