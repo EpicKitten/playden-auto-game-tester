@@ -29,17 +29,19 @@ with an HDMI capture card, collects logs, writes a report folder and an issue dr
 | `.claude-plugin/`, `skills/`, `payloads/` | The Claude Code plugin, its skill, and the `ps5power` payload |
 | `recovery.py` | Getting the console going again unattended: services, the controller dialog, error dialogs, stuck games |
 | `report.py` | Results, Markdown reports and issue drafts for Playden's test-report form |
-| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page; click a game for its draft, field by field, to copy into Playden's form |
-| `library.py`, `reported.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
+| `dashboard.py` | `dashboard.html`: every game with this tester's result and Playden's reports, one standalone page; its compatibility list too, with games only that list or a test report knows; click a game for its screenshots and its draft, field by field, to copy into Playden's form |
+| `reported.py` | Playden's issues and `COMPATIBILITY.md`: what to skip, and the dashboard's copy of the list |
+| `library.py`, `ports.py`, `storefeatures.py`, `protondb.py`, `players.py`, `lists.py` | Building the lists of games still to test (`update` runs them) |
 | `tests/test_tester.py` | Unit tests with fake consoles, clocks and captures |
 
 ## Commands
 
 ```sh
 python -m unittest discover -s tests      # run before every commit; all must pass
-python -m playden_tester update           # rebuild the lists of games to test (no console needed)
+python -m playden_tester update           # fetch Playden's issues and compatibility list, rebuild the lists to test (no console needed)
 python -m playden_tester dashboard        # rebuild dashboard.html from the lists and results (no console needed)
 python -m playden_tester doctor           # check the console (PS5_HOST)
+python -m playden_tester savelogs TITLE FOLDER --label WHAT   # keep one run's logs in FOLDER/runs/NN-WHAT
 python -m playden_tester campaign         # the long run; needs padd, the capture card (PS5_CAPTURE) and elfldr
 ```
 
@@ -85,6 +87,12 @@ Learned on the test console (Playden 0.10.0-beta.1, firmware 12.20); check again
 When a screen changes, take a screenshot through the capture card (`playden-tester snapshot FILE`) and look before
 changing the navigation code. Don't guess at buttons.
 
+## Keep every run's logs
+
+Save the logs after every run, before the next one, and once per run when a test is repeated. A title log holds only
+the newest session and the start of the one before, and Playden copies it only when it starts, so close the game and
+bring Playden back first. `savelogs` never replaces an earlier run, and warns when the log is still the last run's.
+
 ## Data
 
 - `data/` is gitignored except `data/games-to-test.md`, `data/games-by-players.md` and `data/games-by-size.md`, the
@@ -92,7 +100,16 @@ changing the navigation code. Don't guess at buttons.
   users regenerate them with `library --controller full`, `library --controller partial` and `update`.
 - `data/reports/<app>-<name>/` holds each tested game's screenshots (`screenshot-30s.jpg`, `screenshot-90s.jpg`),
   `playden-report.zip`, `issue.md` and `result.json`. Not committed.
+- `data/reports/imported-<name>/` is the same for a program imported into Playden, with no Steam app (FurMark,
+  Prime95). The dashboard lists these on their own rows, keyed by the folder's name. Their drafts are written by hand.
 - `games-to-test.json` is not committed: it holds playtime and family-sharing details.
+- `compatibility.json` is every row of Playden's `COMPATIBILITY.md`, written by `reported` and `update`. Its Kit column
+  is the Playden runtime kit, not the app's version. Skipping still goes by `tested-by-others.json`: a row counts there
+  only when it links the game's store page, while the dashboard also matches rows to library games by exact name.
+  `tested-by-others.json` may name games outside the library, for their reports on the dashboard: games on that list,
+  and games known only from a test report that links a store or SteamDB page (the first link is the game; the title
+  comes from the issue). A campaign and the lists only test library games, so these change nothing there. `reported`
+  prints how many reports link no store page and matched no game.
 - `dashboard.html` is not committed: it holds the local issue drafts, log lines included.
 - Markdown lists are written with LF line endings (`newline="\n"`), so a run on Windows doesn't rewrite every line.
 

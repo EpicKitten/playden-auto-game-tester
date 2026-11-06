@@ -6,11 +6,14 @@ sign-in). Steam account names and SteamIDs are replaced in every file.
 """
 import json
 import re
+import time
 import zipfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 from .console import HOMEBREW, LOGS, PLAYDEN
 from .filemanager import FileManagerError
+from .webaccess import WebAccessError
 
 KITS = "/data/playden/kits"
 IDENTITY = f"{HOMEBREW}/{PLAYDEN}/playden-package.identity"
@@ -18,6 +21,7 @@ ACCOUNT = re.compile(r'L"Steam(?:App)?User" L"([^"]+)"')
 STEAM_ID = re.compile(r"\b7656119\d{10}\b")
 FIRMWARE = re.compile(r"console_firmware=(\S+)")
 SKIP_SUFFIXES = (".ppm",)
+SESSION_TIME = re.compile(r"PW_REPORT/1 .*? time=(\d+)")
 
 
 def redact(text, names):
@@ -100,3 +104,40 @@ class LogCollector:
             for name, text in sorted(texts.items()):
                 archive.writestr(f"logs/{name}", text)
         return table
+
+
+def session_stamp(title_log):
+    """The newest session in a title log, by its start time; "" when the log has none."""
+    match = SESSION_TIME.search(title_log)
+    return match.group(1) if match else ""
+
+
+def save_run(collector, web, title, folder, label, app=None, notes=""):
+    """Keep one run's logs in <folder>/runs/<NN>-<label>/, so a later run can't replace them: the logs zip, Playden's
+    report zip when web access answers, and notes.md. The result says what was saved and whether the log is stale: Playden
+    copies a game's log only the next time it starts, so a title log can still be an earlier run's, or another game's
+    that used the title ID before."""
+    runs = Path(folder) / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    taken = [int(path.name.split("-")[0]) for path in runs.iterdir() if path.name.split("-")[0].isdigit()]
+    slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-") or "run"
+    run = runs / f"{max(taken, default=0) + 1:02d}-{slug}"
+    run.mkdir()
+    versions = collector.collect(title, app, run / "logs.zip", extra={"run": label})
+    with zipfile.ZipFile(run / "logs.zip") as archive:
+        name = f"logs/title-{title}.log"
+        log = archive.read(name).decode("utf-8", "replace") if name in archive.namelist() else ""
+    stamp = session_stamp(log)
+    earlier = [path.parent.name for path in runs.glob("*/session.txt")
+               if stamp and path.read_text(encoding="utf-8").strip() == stamp]
+    (run / "session.txt").write_text(stamp + "\n", encoding="utf-8", newline="\n")
+    report = False
+    if web:
+        try:
+            web.report_zip(title, run / "playden-report.zip", tries=2, wait=5)
+            report = True
+        except WebAccessError:
+            pass
+    (run / "notes.md").write_text(f"# {label}\n\nTitle {title}, saved {time.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+                                  f"{notes}\n\n{versions}", encoding="utf-8", newline="\n")
+    return {"folder": run, "report": report, "stale": earlier, "session": stamp}

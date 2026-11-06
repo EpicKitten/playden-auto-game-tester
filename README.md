@@ -287,7 +287,8 @@ it's loaded again by hand.
 `reported` reads every issue on [leolobato/playden-ps5](https://github.com/leolobato/playden-ps5/issues) and its
 `COMPATIBILITY.md`, and writes the games with a test report (one that links the game's Steam or SteamDB page, or is
 titled with its name) or a row in the compatibility list to
-`data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports.
+`data/tested-by-others.json`; `campaign` then skips them. Run it again for newer reports. It also keeps the whole
+compatibility list in `data/compatibility.json`, for the dashboard.
 
 `data/multiplayer-anticheat.json` lists the multiplayer games with anti-cheat (Easy Anti-Cheat, BattlEye, VAC and the
 like). `campaign` tests them like any other game, because a report that one fails is still useful, and `dashboard`

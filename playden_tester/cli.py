@@ -23,6 +23,7 @@ PADD_BUILD = Path(__file__).resolve().parent.parent / "build" / "padd" / "padd.e
 # The games with full and with partial controller support, from 'library --controller full' and '... partial'.
 LIBRARY_LISTS = ["data/games-controller-full.json", "data/games-controller-partial.json"]
 SKIP_LISTS = ["data/tested-by-others.json", "data/skip-by-hand.json"]
+COMPATIBILITY = "data/compatibility.json"
 
 PORTS = {8888: "ps5-web-file-manager (required)", ELFLDR_PORT: "elfldr (required to launch games)",
          PADD_PORT: "padd virtual controller (optional: input, unattended close)",
@@ -243,6 +244,22 @@ def cmd_home(args):
     return 0
 
 
+def cmd_savelogs(args):
+    """Keep one run's logs in its own numbered folder. Start Playden first: it copies a game's log when it starts."""
+    from .logs import LogCollector, save_run
+    from .webaccess import WebAccess
+    saved = save_run(LogCollector(FileManager(args.host, args.port)), WebAccess(args.host), args.title, args.folder,
+                     args.label, args.app, args.notes)
+    print(saved["folder"])
+    if not saved["report"]:
+        print("no Playden report zip: web access did not answer, so only the tester's logs.zip was saved")
+    if saved["stale"]:
+        print(f"warning: this is the same session as {', '.join(saved['stale'])}: start Playden once more, then save "
+              "again", file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_snapshot(args):
     if args.list:
         for name in list_devices():
@@ -296,41 +313,59 @@ def cmd_library(args):
 
 def cmd_dashboard(args):
     """Write every game of the library, with this tester's result and Playden's reports, as one page."""
-    from .dashboard import read_rows, write
+    from .dashboard import compatibility_counts, read_rows, write
     rows = read_rows(args.list, "data/multiplayer-anticheat.json", "data/skip-by-hand.json", "data/tested-by-others.json",
                      Path(args.campaign) / "campaign.json", "data/install-sizes.json", args.reports,
-                     Path(args.campaign) / "issues")
+                     Path(args.campaign) / "issues", args.compatibility)
     write(rows, args.out)
     print(f"{len(rows)} games: {args.out}")
+    counts = compatibility_counts(rows)
+    print(f"compatibility list: {counts['app']} rows matched a game by app id, {counts['name']} only by name, "
+          f"{counts['steam']} have a Steam app outside the library, {counts['other']} have no Steam app")
     return 0
 
 
 def cmd_reported(args):
     """The games of a list that already have a test report on Playden's issue tracker."""
     import json
-    from .reported import ReportedError, compatibility_games, fetch_compatibility, fetch_issues, reported_games
+    from .reported import (ReportedError, compatibility_games, fetch_compatibility, fetch_issues,
+                           parse_compatibility, reported_games, unplaced_reports)
     games = read_lists(args.list)
     token = os.environ.get("GITHUB_TOKEN")
     try:
         issues = fetch_issues(args.repo, token=token)
-        listed = compatibility_games(fetch_compatibility(args.repo, token=token), games, args.repo)
+        compatibility = fetch_compatibility(args.repo, token=token)
     except ReportedError as error:
         print(error, file=sys.stderr)
         return 1
-    found = reported_games(issues, games)
+    listed = compatibility_games(compatibility, games, args.repo)
+    table = parse_compatibility(compatibility)
+    # Reports on the list's other games are for the dashboard: they aren't in the library, so nothing else sees them.
+    library = {g["app"] for g in games}
+    others = [{"app": row["app"], "title": row["game"]} for row in table if row["app"] and row["app"] not in library]
+    found = reported_games(issues, others + games)
+    outside, reports, unlinked = unplaced_reports(issues, found)
+    found.update(reports)
     for app, entries in listed.items():
         found.setdefault(app, []).extend(entries)
-    names = {g["app"]: g["title"].strip() for g in games}
+    names = {**outside, **{g["app"]: g["title"].strip() for g in others + games}}
     rows = [{"app": app, "title": names[app], "issues": found[app]}
             for app in sorted(found, key=lambda app: names[app].lower())]
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=1, ensure_ascii=False), encoding="utf-8")
+    if table:
+        Path(args.compatibility).write_text(json.dumps(table, indent=1, ensure_ascii=False), encoding="utf-8")
+    else:  # a moved file or a new layout must not empty the dashboard's copy
+        print(f"no games in {args.repo}'s compatibility list; kept {args.compatibility}", file=sys.stderr)
     for row in rows:
         print(f"{row['app']:>8}  {row['title']}  "
               + " ".join(f"#{i['number']}" if i["number"] else "COMPATIBILITY.md" for i in row["issues"]))
-    print(f"{len(rows)} of {len(games)} games already have a test report on {args.repo} or are on its compatibility "
-          f"list ({len(issues)} issues, {len(listed)} games from COMPATIBILITY.md): {out}")
+    print(f"{sum(row['app'] in library for row in rows)} of {len(games)} games already have a test report on "
+          f"{args.repo} or are on its compatibility list ({len(issues)} issues, {len(listed)} games from "
+          f"COMPATIBILITY.md, {len(table)} rows in all): {out}")
+    print(f"{len(outside)} more games are known only from their test reports; "
+          f"{unlinked} test reports link no store page and matched no game, so they are on no game's row")
     return 0
 
 
@@ -485,7 +520,8 @@ def cmd_update(args):
     --players)."""
     from argparse import Namespace
     library = args.list
-    steps = [("reported", cmd_reported, Namespace(list=library, repo=args.repo, out="data/tested-by-others.json")),
+    steps = [("reported", cmd_reported, Namespace(list=library, repo=args.repo, out="data/tested-by-others.json",
+                                                  compatibility=COMPATIBILITY)),
              ("ports", cmd_ports, Namespace(list=library, out="data/console-ports.json")),
              ("features", cmd_features, Namespace(list=library, out="data/store-features.json",
                                                   anticheat="data/multiplayer-anticheat.json", refresh=False)),
@@ -758,6 +794,7 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--campaign", default="results/campaign", help="a campaign's folder")
     p.add_argument("--reports", default="data/reports", metavar="FOLDER", help="a folder per game, from a campaign")
+    p.add_argument("--compatibility", default=COMPATIBILITY, help="Playden's compatibility list, from 'reported'")
     p.add_argument("--out", default="dashboard.html")
     p.set_defaults(func=cmd_dashboard)
     p = sub.add_parser("update", help="bring the lists of games still to test up to date: reported, ports, features, "
@@ -782,7 +819,16 @@ def main(argv=None):
     p.add_argument("--list", nargs="+", default=LIBRARY_LISTS, help="lists written by 'library'")
     p.add_argument("--repo", default="leolobato/playden-ps5", help="GitHub repository (GITHUB_TOKEN raises the rate limit)")
     p.add_argument("--out", default="data/tested-by-others.json")
+    p.add_argument("--compatibility", default=COMPATIBILITY, help="where to keep Playden's compatibility list")
     p.set_defaults(func=cmd_reported)
+    p = sub.add_parser("savelogs", help="keep one run's logs in FOLDER/runs/NN-LABEL (start Playden first: it copies "
+                                        "a game's log when it starts)")
+    p.add_argument("title", help="PS5 title, e.g. FAKE78023")
+    p.add_argument("folder", help="the game's report folder")
+    p.add_argument("--label", required=True, help="what this run was, e.g. 'Direct3D 9'")
+    p.add_argument("--app", type=int, help="Steam app, when it has one")
+    p.add_argument("--notes", default="", help="settings and result, for notes.md")
+    p.set_defaults(func=cmd_savelogs)
     p = sub.add_parser("snapshot", help="save a frame from the capture card")
     p.add_argument("file", nargs="?", help="PNG or JPEG path (default snapshot-<time>.png)")
     p.add_argument("--list", action="store_true", help="list capture devices")

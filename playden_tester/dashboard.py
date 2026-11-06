@@ -1,15 +1,19 @@
 """dashboard.html: every game of the library on one page, with this tester's result and Playden's reports.
 
 The page stands alone (no scripts or fonts from elsewhere). It holds what the Markdown lists show (titles, sizes and
-results) and the local issue drafts, field by field, to copy into Playden's test-report form. Playtime and family
-sharing stay out, and so does the text of a screen a tester error quoted. Files to attach are named relative to the
-page, so no local folder ends up in it.
+results), Playden's compatibility list, including its games that aren't in the library, and the local issue drafts,
+field by field, to copy into Playden's test-report form. Playtime and family sharing stay out, and so does the text of
+a screen a tester error quoted. Files to attach are named relative to the page, so no local folder ends up in it. Screenshots are shown from those files too, not copied in, so the page stays
+small and they only load when a game is opened.
 """
 import html
 import json
 import re
 import time
+from collections import Counter
 from pathlib import Path
+
+from .reported import compatibility_key
 
 PASSED = {"survived", "not_closed"}
 FAILED = {"crashed", "exited_early", "did_not_start", "refused"}
@@ -85,30 +89,72 @@ def read_draft(path):
             "versions": fields.get("Versions", ""), "storage": fields.get("Where the game is installed", ""),
             "settings": fields.get("Game settings you changed", ""),
             "happened": fields.get("What happened", "").replace("; check before posting", ""),
-            "logs": rest.strip(), "attach": [file for file in found if file]}
+            "logs": rest.strip(), "attach": [file for file in found if file],
+            "controls": re.findall(r"^- \[x\] (.+)$", fields.get("Controls", ""), re.M)}
 
 
-def build_rows(library, state, reported, left_out, sizes, reports=None, anticheat=None, forms=None):
+def match_compatibility(compatibility, games, reported_only=None):
+    """{game: [rows of the compatibility list]}. games: {app: title}, the games known so far. A row matches by its
+    Steam app, or else by name, and "by" says which ("" for a row that matches no game). Those rows become games of
+    their own, under their app or, without one, under "name:<name>"; rows that share a name share a game, and so
+    does a game known only from its test reports (reported_only: {app: title})."""
+    names = {compatibility_key(title): app for app, title in games.items()}
+    found, others = {}, {compatibility_key(title): app for app, title in (reported_only or {}).items()}
+    for row in compatibility:
+        name = compatibility_key(row["game"])
+        if row.get("app") in games:
+            game, by = row["app"], "app"
+        elif name in names:
+            game, by = names[name], "name"
+        else:
+            game, by = others.setdefault(name, row.get("app") or f"name:{name}"), ""
+        found.setdefault(game, []).append({**row, "by": by})
+    return found
+
+
+def compatibility_counts(rows):
+    """How the compatibility list's rows matched: "app", "name", and for the rest "steam" (a Steam app outside the
+    library) or "other" (no Steam app)."""
+    counts = Counter(entry["by"] or ("steam" if entry["app"] else "other") for row in rows for entry in row["compat"])
+    return {key: counts[key] for key in ("app", "name", "steam", "other")}
+
+
+def build_rows(library, state, reported, left_out, sizes, reports=None, anticheat=None, forms=None, compatibility=None,
+               titles=None, imported=None):
     """One row per game. library: rows with app and title. state: campaign progress by app. reported: {app: issues}.
     left_out: {app: why}. sizes: {app: GB}. reports: {app: path of the local issue draft}. anticheat: {app: [names]},
-    games that are tested but expected to fail. forms: {app: fields from read_draft}."""
+    games that are tested but expected to fail. forms: {app: fields from read_draft}. compatibility: the rows of
+    reported.parse_compatibility; a game only they name has no app when its row has no Steam link. titles: {app:
+    title} for games in reported that nothing else names. imported: rows from read_imported, programs with no Steam
+    app."""
     reports, anticheat, forms, games = reports or {}, anticheat or {}, forms or {}, {}
     for row in library:
         games.setdefault(int(row["app"]), row["title"])
     for app, entry in state.items():
         games.setdefault(int(app), entry.get("title") or str(app))
+    titles = {app: title for app, title in (titles or {}).items() if app in reported and app not in games}
+    listed = match_compatibility(compatibility or [], games, titles)
+    for game, entries in listed.items():
+        games.setdefault(game, entries[0]["game"])
+    for app, title in titles.items():
+        games.setdefault(app, title)
     rows = []
     for app, title in games.items():
         entry = state.get(str(app), {})
-        status, issues = entry.get("status"), reported.get(app, [])
-        group = _group(status, issues, left_out.get(app))
-        rows.append({"app": app, "title": title, "gb": sizes.get(app), "group": group,
+        status, issues, compat = entry.get("status"), reported.get(app, []), listed.get(app, [])
+        group = _group(status, issues or compat, left_out.get(app))
+        # The compatibility column takes over from a link to the list, when there is a row for it.
+        links = [issue for issue in issues if issue.get("number") or not compat]
+        rows.append({"key": str(app), "app": app if isinstance(app, int) else None, "title": title,
+                     "gb": sizes.get(app), "group": group,
                      "result": STATUS_LABELS.get(status, status or ""), "detail": _detail(entry),
-                     "tested": (entry.get("updated") or "")[:10], "links": _links(issues),
+                     "tested": (entry.get("updated") or "")[:10], "links": _links(links), "compat": compat,
                      "why": left_out.get(app, ""), "draft": reports.get(app, ""),
                      "anticheat": ", ".join(anticheat.get(app, [])), "form": forms.get(app)})
+    rows += imported or []
     # Never tested first: anything with an issue or a compatibility row goes last, whatever this tester found.
-    return sorted(rows, key=lambda row: (bool(row["links"]), list(GROUPS).index(row["group"]), row["title"].lower()))
+    return sorted(rows, key=lambda row: (bool(row["links"] or row["compat"]), list(GROUPS).index(row["group"]),
+                                         row["title"].lower()))
 
 
 def _drafts(reports_folder, issues_folder):
@@ -127,21 +173,39 @@ def _drafts(reports_folder, issues_folder):
     return drafts
 
 
-def read_rows(lists, anticheat_file, skip_by_hand, others, state_file, sizes_file, reports_folder, issues_folder=None):
+def read_imported(reports_folder):
+    """Rows for programs imported into Playden: a report folder named imported-<name>, with result.json and issue.md
+    as a Steam game's has. They have no Steam app, so the folder's name is their key."""
+    rows = []
+    for path in sorted(Path(reports_folder).glob("imported-*/issue.md")):
+        result = json.loads((path.parent / "result.json").read_text(encoding="utf-8"))
+        status = result.get("status")
+        rows.append({"key": path.parent.name, "app": None, "title": result["game"], "gb": result.get("gb"),
+                     "group": _group(status, [], None), "result": STATUS_LABELS.get(status, status or ""),
+                     "detail": _detail(result), "tested": (result.get("tested") or "")[:10], "links": [], "compat": [],
+                     "why": "", "draft": path.as_posix(), "anticheat": "", "form": read_draft(path), "imported": True})
+    return rows
+
+
+def read_rows(lists, anticheat_file, skip_by_hand, others, state_file, sizes_file, reports_folder, issues_folder=None,
+              compatibility_file=None):
     """The rows from the files the rest of the tester keeps. Files that are missing count as empty."""
     def load(path, default):
         path = Path(path)
         return json.loads(path.read_text(encoding="utf-8")) if path.exists() else default
 
     library = [row for path in lists for row in load(path, [])]
-    reported = {int(row["app"]): row["issues"] for row in load(others, [])}
+    others = load(others, [])
+    reported = {int(row["app"]): row["issues"] for row in others}
     left_out = {int(row["app"]): row.get("reason") or "By hand" for row in load(skip_by_hand, [])}
     anticheat = {int(row["app"]): row.get("anticheats") or [] for row in load(anticheat_file, [])}
     sizes = {int(app): gb for app, gb in load(sizes_file, {}).items() if gb}
     drafts = _drafts(reports_folder, issues_folder)
     return build_rows(library, load(state_file, {}), reported, left_out, sizes,
                       {app: path.as_posix() for app, path in drafts.items()}, anticheat,
-                      {app: read_draft(path) for app, path in drafts.items()})
+                      {app: read_draft(path) for app, path in drafts.items()},
+                      load(compatibility_file, []) if compatibility_file else [],
+                      {int(row["app"]): row["title"] for row in others}, read_imported(reports_folder))
 
 
 def render(rows, stamp=None):
@@ -242,6 +306,10 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
 .field ul { margin: 0; padding-left: 18px; font-size: 13px; }
 .field li.file { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 4px; }
 .copies { display: flex; gap: 6px; flex: none; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 10px; }
+.shots a { color: var(--text-2); font-size: 12px; text-decoration: none; }
+.shots img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #000; border-radius: 6px;
+  margin-bottom: 3px; }
 .scroll { overflow-x: auto; border-top: 1px solid var(--axis); }
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-2); padding: 8px 12px 8px 0; white-space: nowrap;
@@ -257,6 +325,9 @@ a:hover { text-decoration: underline; }
 .state { display: inline-flex; gap: 6px; align-items: baseline; white-space: nowrap; }
 .state .dot { font-size: 12px; width: 12px; text-align: center; font-weight: 700; }
 .note { color: var(--text-3); font-size: 13px; margin-top: 1px; max-width: 42ch; }
+.clip { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.compat + .compat { margin-top: 6px; }
+.field p { margin: 0 0 4px; font-size: 13px; }
 .links { display: flex; flex-wrap: wrap; gap: 2px 10px; }
 .tag { color: var(--text-3); font-size: 12px; }
 .none { color: var(--text-3); }
@@ -289,13 +360,14 @@ code { font-size: 12px; }
   <th data-key="title" tabindex="0">Game</th>
   <th data-key="gb" class="num" tabindex="0">Size</th>
   <th data-key="group" tabindex="0" aria-sort="ascending">This tester</th>
+  <th data-key="compat" tabindex="0">Compatibility list</th>
   <th data-key="links" tabindex="0">Playden reports</th>
   <th data-key="tested" class="tested" tabindex="0">Tested</th>
 </tr></thead>
 <tbody id="rows"></tbody>
 </table></div>
-<footer>Click a game for its issue form fields. Never-tested games come first; games with a Playden issue or a compatibility row come last. "Survived" means the game ran through the watch time with a moving picture; it doesn't prove it is playable.
-Reports count whoever filed them. Rebuild this page with <code>python -m playden_tester dashboard</code>.</footer>
+<footer>Click a game for its issue form fields and full compatibility notes. Never-tested games come first; games with a Playden issue or a compatibility row come last. "Survived" means the game ran through the watch time with a moving picture; it doesn't prove it is playable.
+Reports count whoever filed them. "Kit" is the Playden runtime kit the compatibility list last checked the game on, and "by name" marks a row with no matching Steam app, so it may be another copy of the game (some are imported ones). Fetch the lists with <code>python -m playden_tester update</code> and rebuild this page with <code>python -m playden_tester dashboard</code>.</footer>
 </main>
 <div class="tip" id="tip"></div>
 <dialog id="panel" aria-labelledby="panel-title"><div id="panel-body"></div></dialog>
@@ -305,6 +377,8 @@ const ROWS = __ROWS__;
 const order = Object.keys(GROUPS);
 const $ = id => document.getElementById(id);
 const FORM = "https://github.com/leolobato/playden-ps5/issues/new?template=test-report.yml";
+const COMPATIBILITY = "https://github.com/leolobato/playden-ps5/blob/main/COMPATIBILITY.md";
+const COMPAT_ORDER = ["Works", "Partial", "Broken", "Refused"];
 const STORE = "playden-filed";
 let filter = null, query = "", sortKey = "group", sortDir = 1, readyOnly = false, current = null, clips = [];
 let filed = new Set();
@@ -312,21 +386,25 @@ try { filed = new Set(JSON.parse(localStorage.getItem(STORE) || "[]")); } catch 
 function saveFiled() {
   try { localStorage.setItem(STORE, JSON.stringify([...filed])); } catch (error) { /* the mark lasts until the page closes */ }
 }
+const known = row => row.links.length > 0 || row.compat.length > 0;
 // A draft is ready when this tester has a result, nobody reported the game, and it is not marked as filed here.
-const ready = row => Boolean(row.form) && !row.links.length && !filed.has(row.app) && (row.group === "passed" || row.group === "failed");
+const fileId = row => row.app ?? row.key;  // imported programs have no app; Filed marks made by app stay valid
+const ready = row => Boolean(row.form) && !known(row) && !filed.has(fileId(row)) && (row.group === "passed" || row.group === "failed");
 
 function esc(text) {
   const box = document.createElement("span");
   box.textContent = text == null ? "" : text;
   return box.innerHTML;
 }
+// Notes come from another repository: everything is escaped first, and only http links become links.
+const notes = text => esc(text).replace(/\\[([^\\]]+)\\]\\((https?:[^)\\s"']+)\\)/g, '<a href="$2">$1</a>').replace(/`([^`]+)`/g, "<code>$1</code>");
 const size = gb => gb == null ? "–" : gb < 1 ? Math.round(gb * 1024) + " MB" : (gb < 10 ? gb.toFixed(1) : Math.round(gb)) + " GB";
 const count = key => ROWS.filter(row => row.group === key).length;
 
 function summary() {
   const tested = count("passed") + count("failed");
   $("lead").textContent = `${ROWS.length} games: ${tested} tested here, ${count("reported")} more reported on Playden, ` +
-    `${count("to_test") + count("problem")} still to test.`;
+    `${count("to_test") + count("problem")} still to test. ${ROWS.filter(row => row.compat.length).length} are on Playden's compatibility list.`;
   $("tiles").innerHTML = order.map(key => `<button class="tile" type="button" data-group="${key}" aria-pressed="false">` +
     `<b>${count(key)}</b><span><i class="swatch" style="background:var(--${GROUPS[key].bar})"></i>${esc(GROUPS[key].label)}</span></button>`).join("");
   $("bar").setAttribute("aria-label", order.map(key => `${GROUPS[key].label}: ${count(key)}`).join(", "));
@@ -335,7 +413,8 @@ function summary() {
 
 function compare(a, b) {
   const pick = {
-    group: row => (row.links.length ? 100 : 0) + order.indexOf(row.group),
+    group: row => (known(row) ? 100 : 0) + order.indexOf(row.group),
+    compat: row => row.compat.length ? COMPAT_ORDER.findIndex(word => row.compat[0].status.includes(word)) : 9,
     title: row => row.title.toLowerCase(),
     gb: row => row.gb == null ? Infinity : row.gb,
     links: row => row.links.length ? -row.links.length : 1,
@@ -350,9 +429,17 @@ function stateCell(row) {
   const label = row.result || (row.group === "reported" ? "Not tested here" : row.group === "left_out" ? row.why : group.label);
   const cheat = row.anticheat ? `<div class="note">Anti-cheat, expected to fail: ${esc(row.anticheat)}</div>` : "";
   const note = cheat + (row.result && row.detail ? `<div class="note">${esc(row.detail)}</div>` : "");
-  const mark = filed.has(row.app) ? "filed" : ready(row) ? "ready to file" : "";
+  const mark = filed.has(fileId(row)) ? "filed" : ready(row) ? "ready to file" : "";
   const draft = (row.draft ? ` <a href="${esc(row.draft)}" class="tag">draft</a>` : "") + (mark ? ` <span class="tag">${mark}</span>` : "");
   return `<span class="state"><span class="dot" style="color:var(--${group.bar === "empty" ? "muted" : group.bar})">${group.icon}</span>${esc(label)}${draft}</span>${note}`;
+}
+
+function compatCell(row) {
+  if (!row.compat.length) return '<span class="none">–</span>';
+  return row.compat.map(entry => `<div class="compat"><span class="state">${esc(entry.status)}</span>` +
+    (entry.kit ? ` <span class="tag">kit ${esc(entry.kit)}</span>` : "") +
+    (entry.by === "name" ? ` <span class="tag">by name</span>` : "") +
+    (entry.notes ? `<div class="note clip">${notes(entry.notes)}</div>` : "") + "</div>").join("");
 }
 
 function linksCell(row) {
@@ -364,9 +451,9 @@ function linksCell(row) {
 function draw() {
   const words = query.toLowerCase().split(/\\s+/).filter(Boolean);
   const shown = ROWS.filter(row => (!filter || row.group === filter) && (!readyOnly || ready(row)) &&
-    words.every(word => (row.title + " " + row.app).toLowerCase().includes(word))).sort(compare);
-  $("rows").innerHTML = shown.map(row => `<tr data-app="${row.app}"><td class="game"><button class="name" type="button">${esc(row.title)}</button></td>` +
-    `<td class="num">${size(row.gb)}</td><td>${stateCell(row)}</td><td>${linksCell(row)}</td>` +
+    words.every(word => (row.title + " " + (row.app || "") + " " + row.compat.map(entry => entry.status).join(" ")).toLowerCase().includes(word))).sort(compare);
+  $("rows").innerHTML = shown.map(row => `<tr data-key="${esc(row.key)}"><td class="game"><button class="name" type="button">${esc(row.title)}</button></td>` +
+    `<td class="num">${size(row.gb)}</td><td>${stateCell(row)}</td><td>${compatCell(row)}</td><td>${linksCell(row)}</td>` +
     `<td class="tested">${esc(row.tested) || '<span class="none">–</span>'}</td></tr>`).join("");
   $("count").textContent = `${shown.length} of ${ROWS.length} games`;
   $("clear").hidden = !filter && !query && !readyOnly;
@@ -431,21 +518,45 @@ function fileField(form) {
   return `<section class="field"><h3>Files to attach <span class="hint">drag these into Logs and screenshots</span></h3><ul>${items}</ul></section>`;
 }
 
+function shotField(form) {
+  const shots = form.attach.filter(file => /\.(jpe?g|png)$/i.test(file));
+  if (!shots.length) return "";
+  // Older runs named a screenshot after the PS5 title, and another game may have used that title since.
+  const old = shots.some(file => !/\/screenshot[^/]*$/.test(file));
+  const hint = old ? "named after the PS5 title from an older run: check it shows this game" : "click to open full size";
+  const items = shots.map(file => {
+    const name = esc(file.split("/").pop());
+    return `<a href="${esc(file)}" target="_blank" rel="noopener"><img src="${esc(file)}" alt="${name}">${name}</a>`;
+  }).join("");
+  return `<section class="field"><h3>Screenshots <span class="hint">${hint}</span></h3><div class="shots">${items}</div></section>`;
+}
+
+function compatField(row) {
+  if (!row.compat.length) return "";
+  const hint = row.compat.some(entry => entry.by === "name") ? "matched by name: check it is this copy of the game" : "from Playden's list";
+  const items = row.compat.map(entry => `<p>${[entry.status, entry.kit && `kit ${entry.kit}`, entry.engine].filter(Boolean).map(esc).join(" · ")}</p>` +
+    (entry.notes ? `<p>${notes(entry.notes)}</p>` : "")).join("");
+  return `<section class="field"><h3>Compatibility list <span class="hint">${hint}</span></h3>${items}<p><a href="${COMPATIBILITY}">Open the list</a></p></section>`;
+}
+
 function openPanel(row) {
   current = row;
   clips = [];
-  const store = `https://store.steampowered.com/app/${row.app}`;
-  const form = row.form || {title: `[Test] ${row.title}`, game: `${row.title} — ${store}`};
+  const store = row.app ? `https://store.steampowered.com/app/${row.app}` : "";
+  const page = store || (row.compat[0] && /^https?:/.test(row.compat[0].url) ? row.compat[0].url : "") ||
+    ((row.form && row.form.game.match(/https?:\\/\\/\\S+/)) || [""])[0];
+  const form = row.form || {title: `[Test] ${row.title}`, game: store ? `${row.title} — ${store}` : row.title};
   const warnings = [];
   if (row.links.length) warnings.push(`Already on Playden: ${row.links.map(link => `<a href="${esc(link.url)}">${esc(link.text)}</a>`).join(", ")}. Add to that instead of opening a new one.`);
   if (row.form && row.group === "problem") warnings.push("This game is waiting for a retest, so the draft is from an earlier run.");
+  if (row.compat.length) warnings.push("Already on Playden's compatibility list: a new report should add something it doesn't say.");
   if (!row.form) warnings.push(row.group === "to_test" ? "Not tested here yet, so there is no draft." : "This tester has no draft for this game, only the title and the game line.");
   if (row.anticheat) warnings.push(`Anti-cheat, expected to fail: ${esc(row.anticheat)}.`);
   const fields = row.form ? [
     field("Result", form.status, "pick this in the list"),
     field("Versions", form.versions),
     field("Where the game is installed", form.storage, "pick this in the list"),
-    `<section class="field"><h3>Controls <span class="hint">tick this one</span></h3><ul><li>DualSense, default (Xbox controller)</li></ul></section>`,
+    `<section class="field"><h3>Controls <span class="hint">tick this one</span></h3><ul><li>${esc(row.imported && form.controls[0] || "DualSense, default (Xbox controller)")}</li></ul></section>`,
     field("Game settings you changed", form.settings),
     field("What happened", form.happened),
     field("Logs and screenshots", form.logs),
@@ -458,11 +569,11 @@ function openPanel(row) {
   $("panel-body").innerHTML = `<div class="top"><div class="top-row"><h2 id="panel-title">${esc(row.title)}</h2>` +
     `<button class="btn" type="button" id="panel-close">Close</button></div><div class="actions">` +
     (row.form ? `<a class="btn main" id="panel-form" target="_blank" rel="noopener" href="${esc(prefill(row, form))}">Open filled-in form</a>` +
-      `<label><input type="checkbox" id="panel-filed"${filed.has(row.app) ? " checked" : ""}> Filed</label>` : "") +
+      `<label><input type="checkbox" id="panel-filed"${filed.has(fileId(row)) ? " checked" : ""}> Filed</label>` : "") +
     `<button class="btn" type="button" id="panel-next"${hasNext ? "" : " disabled"}>Next to file</button>` +
-    `<a class="tag" href="${store}">Steam page</a></div></div><div class="body">` +
-    warnings.map(text => `<p class="warn">${text}</p>`).join("") +
-    (row.form ? `<p class="note" style="max-width:none">Automated result: look at the screenshots before you post.</p>` : "") +
+    (page ? `<a class="tag" href="${esc(page)}">${store ? "Steam page" : "Game page"}</a>` : "") + `</div></div><div class="body">` +
+    warnings.map(text => `<p class="warn">${text}</p>`).join("") + compatField(row) +
+    (row.form ? `<p class="note" style="max-width:none">${row.imported ? "Imported program, not a Steam game." : "Automated result:"} Look at the screenshots before you post.</p>${shotField(form)}` : "") +
     field("Title", form.title) + field("Game", form.game) + fields + "</div>";
   if (!$("panel").open) $("panel").showModal();
   $("panel-body").scrollIntoView();
@@ -479,7 +590,7 @@ summary();
 draw();
 $("rows").addEventListener("click", event => {
   const row = event.target.closest("tr");
-  if (row && !event.target.closest("a")) openPanel(ROWS.find(game => game.app === Number(row.dataset.app)));
+  if (row && !event.target.closest("a")) openPanel(ROWS.find(game => game.key === row.dataset.key));
 });
 $("ready").addEventListener("click", () => { readyOnly = !readyOnly; draw(); });
 $("panel").addEventListener("click", async event => {
@@ -494,7 +605,7 @@ $("panel").addEventListener("click", async event => {
 });
 $("panel").addEventListener("change", event => {
   if (event.target.id !== "panel-filed") return;
-  if (event.target.checked) filed.add(current.app); else filed.delete(current.app);
+  if (event.target.checked) filed.add(fileId(current)); else filed.delete(fileId(current));
   saveFiled();
   draw();
   $("panel-next").disabled = !ROWS.some(ready);
