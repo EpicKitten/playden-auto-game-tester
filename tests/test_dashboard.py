@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from playden_tester.dashboard import build_rows, read_draft, read_rows, render
+from playden_tester.dashboard import build_rows, compatibility_counts, read_draft, read_imported, read_rows, render
 
 ISSUE = {"number": 7, "title": "[Test] B", "state": "open", "url": "https://github.com/leolobato/playden-ps5/issues/7"}
 LIST = {"number": None, "title": "COMPATIBILITY.md: B", "state": "✅ Works",
@@ -110,6 +110,94 @@ class OrderTest(unittest.TestCase):
 
 
 class LinkTest(unittest.TestCase):
+    def compat(self, game, app=None, **fields):
+        return {"game": game, "app": app, "url": "", "status": "✅ Works", "kit": "0.18", "engine": "", "notes": "Fine",
+                **fields}
+
+    def test_a_compatibility_row_shows_on_the_game_it_links(self):
+        rows = build_rows([{"app": 5, "title": "Five"}], {}, {}, {}, {}, compatibility=[self.compat("Five!", 5)])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["group"], "reported")
+        self.assertEqual((rows[0]["compat"][0]["status"], rows[0]["compat"][0]["kit"]), ("✅ Works", "0.18"))
+        self.assertEqual(rows[0]["compat"][0]["by"], "app")
+
+    def test_a_row_without_a_known_app_matches_by_exact_name(self):
+        rows = build_rows([{"app": 5, "title": "Escape Simulator"}], {}, {}, {}, {},
+                          compatibility=[self.compat("Escape Simulator (imported)"),
+                                         self.compat("Escape Simulator", 99)])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual([entry["by"] for entry in rows[0]["compat"]], ["name", "name"])
+
+    def test_a_longer_name_is_a_different_game(self):
+        rows = build_rows([{"app": 5, "title": "Escape Simulator"}], {}, {}, {}, {},
+                          compatibility=[self.compat("Escape Simulator 2", 99)])
+        self.assertEqual({row["title"]: bool(row["compat"]) for row in rows},
+                         {"Escape Simulator": False, "Escape Simulator 2": True})
+
+    def test_games_only_on_the_compatibility_list_get_a_row(self):
+        rows = build_rows([], {}, {9: [ISSUE]}, {}, {},
+                          compatibility=[self.compat("Nine", 9), self.compat("Blur"), self.compat("Blur (imported)")])
+        by_title = {row["title"]: row for row in rows}
+        self.assertEqual(set(by_title), {"Nine", "Blur"})
+        self.assertEqual((by_title["Nine"]["app"], by_title["Nine"]["key"]), (9, "9"))
+        self.assertEqual([link["text"] for link in by_title["Nine"]["links"]], ["#7"])
+        self.assertEqual((by_title["Blur"]["app"], by_title["Blur"]["key"]), (None, "name:blur"))
+        self.assertEqual(len(by_title["Blur"]["compat"]), 2)
+        self.assertEqual(by_title["Blur"]["group"], "reported")
+        self.assertNotIn("__ROWS__", render(rows))
+
+    def test_the_compatibility_column_replaces_the_link_to_the_list(self):
+        rows = build_rows([{"app": 5, "title": "Five"}], {}, {5: [ISSUE, LIST]}, {}, {},
+                          compatibility=[self.compat("Five", 5)])
+        self.assertEqual([link["text"] for link in rows[0]["links"]], ["#7"])
+
+    def test_games_on_the_compatibility_list_sort_with_the_reported_ones(self):
+        rows = build_rows([{"app": 1, "title": "Listed"}, {"app": 2, "title": "Untested"}], {}, {}, {}, {},
+                          compatibility=[self.compat("Listed", 1)])
+        self.assertEqual([row["title"] for row in rows], ["Untested", "Listed"])
+
+    def test_counts_say_how_rows_matched(self):
+        rows = build_rows([{"app": 1, "title": "One"}, {"app": 2, "title": "Two"}], {}, {}, {}, {},
+                          compatibility=[self.compat("One", 1), self.compat("Two"), self.compat("Three", 3),
+                                         self.compat("Four"), self.compat("Five")])
+        self.assertEqual(compatibility_counts(rows), {"app": 1, "name": 1, "steam": 1, "other": 2})
+
+    def test_read_rows_takes_the_compatibility_list_from_its_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "compatibility.json"
+            path.write_text(json.dumps([self.compat("Blur")]), encoding="utf-8")
+            rows = read_rows([], "none", "none", "none", "none", "none", folder, compatibility_file=path)
+            self.assertEqual([row["title"] for row in rows], ["Blur"])
+            self.assertEqual(read_rows([], "none", "none", "none", "none", "none", folder,
+                                       compatibility_file=Path(folder) / "gone.json"), [])
+
+    def test_a_game_known_only_from_its_reports_gets_a_row(self):
+        rows = build_rows([{"app": 1, "title": "One"}], {}, {1422450: [ISSUE]}, {}, {}, titles={1422450: "Deadlock"})
+        row = next(row for row in rows if row["app"] == 1422450)
+        self.assertEqual((row["title"], row["group"]), ("Deadlock", "reported"))
+        self.assertEqual([link["text"] for link in row["links"]], ["#7"])
+
+    def test_a_library_title_wins_and_a_game_without_reports_gets_no_row(self):
+        rows = build_rows([{"app": 1, "title": "One"}], {}, {1: [ISSUE]}, {}, {}, titles={1: "[One", 2: "Two"})
+        self.assertEqual([row["title"] for row in rows], ["One"])
+
+    def test_a_compatibility_row_without_an_app_joins_the_reported_game_of_that_name(self):
+        rows = build_rows([], {}, {9: [ISSUE]}, {}, {}, compatibility=[self.compat("Nine (imported)")],
+                          titles={9: "Nine"})
+        self.assertEqual(len(rows), 1)
+        self.assertEqual((rows[0]["app"], len(rows[0]["compat"]), len(rows[0]["links"])), (9, 1, 1))
+
+    def test_read_rows_keeps_reported_games_outside_the_library(self):
+        with tempfile.TemporaryDirectory() as folder:
+            others = Path(folder) / "others.json"
+            others.write_text(json.dumps([{"app": 9, "title": "Nine", "issues": [ISSUE]}]), encoding="utf-8")
+            rows = read_rows([], "none", "none", others, "none", "none", folder)
+        self.assertEqual([(row["app"], row["title"]) for row in rows], [(9, "Nine")])
+
+    def test_notes_cannot_end_the_page_s_script(self):
+        rows = build_rows([], {}, {}, {}, {}, compatibility=[self.compat("Blur", notes="</script><b>")])
+        self.assertNotIn("</script><b>", render(rows))
+
     def test_issues_and_the_compatibility_list_are_both_linked(self):
         rows = build_rows([{"app": 1, "title": "B"}], {}, {1: [ISSUE, LIST]}, {}, {})
         self.assertEqual([link["text"] for link in rows[0]["links"]], ["#7", "Compatibility list"])
@@ -134,6 +222,14 @@ class RenderTest(unittest.TestCase):
         page = render([])
         self.assertNotIn('src="http', page)
         self.assertNotIn('rel="stylesheet"', page)
+
+
+    def test_screenshots_are_shown_from_their_files_not_copied_in(self):
+        page = render([{"app": 5, "title": "Five", "group": "passed", "links": [],
+                        "form": {"attach": ["data/reports/5-five/screenshot-30s.jpg"]}}])
+        self.assertIn("shotField(form)", page)
+        self.assertIn("data/reports/5-five/screenshot-30s.jpg", page)
+        self.assertNotIn("data:image", page)
 
 
 class DraftTest(unittest.TestCase):
@@ -204,6 +300,52 @@ class ReadTest(unittest.TestCase):
                              root / "reports")
         self.assertEqual(rows[0]["group"], "to_test")
         self.assertTrue(rows[0]["draft"].endswith("5-five/issue.md"))
+
+
+class ImportedTest(unittest.TestCase):
+    def folder(self, root, name="imported-furmark", status="survived"):
+        folder = Path(root) / name
+        folder.mkdir()
+        (folder / "result.json").write_text(json.dumps(
+            {"app": None, "game": "FurMark", "status": status, "detail": "3598 points", "tested": "2026-11-05 13:00:00",
+             "gb": 0.06}), encoding="utf-8")
+        (folder / "shot.jpg").write_bytes(b"x")
+        (folder / "issue.md").write_text(
+            "# [Test] FurMark\n\n### Game\n\nFurMark - https://example.com/furmark/\n\n### Result\n\nWorks\n\n"
+            "### Controls\n\n- [x] DualSense, Mouse preset\n\n### Logs and screenshots\n\n`shot.jpg`\n\nScore: 3598\n",
+            encoding="utf-8")
+
+    def test_an_imported_folder_is_a_row_with_no_app(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root)
+            row = read_imported(root)[0]
+        self.assertEqual((row["key"], row["app"], row["title"]), ("imported-furmark", None, "FurMark"))
+        self.assertEqual((row["group"], row["result"], row["tested"]), ("passed", "Survived", "2026-11-05"))
+        self.assertEqual(row["form"]["controls"], ["DualSense, Mouse preset"])
+        self.assertTrue(row["form"]["attach"][0].endswith("imported-furmark/shot.jpg"))
+
+    def test_a_failed_import_is_in_the_failed_group(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root, status="crashed")
+            self.assertEqual(read_imported(root)[0]["group"], "failed")
+
+    def test_a_program_that_runs_but_does_not_work_counts_as_failed(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root, status="broken")
+            row = read_imported(root)[0]
+            self.assertEqual((row["group"], row["result"]), ("failed", "Doesn't work"))
+
+    def test_only_imported_folders_count(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root, "123-a-steam-game")
+            self.assertEqual(read_imported(root), [])
+
+    def test_read_rows_adds_them_and_the_page_renders(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root)
+            rows = read_rows([], "none", "none", "none", "none", "none", root)
+            self.assertEqual([row["title"] for row in rows], ["FurMark"])
+            self.assertIn("imported-furmark", render(rows))
 
 
 if __name__ == "__main__":

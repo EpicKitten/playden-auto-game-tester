@@ -1,4 +1,10 @@
+import io
+import json
+import tempfile
 import unittest
+from contextlib import redirect_stderr
+from pathlib import Path
+from unittest import mock
 
 from playden_tester import titlelog
 from playden_tester.catalog import Game
@@ -697,6 +703,111 @@ class CompatibilityTest(unittest.TestCase):
                                            {"app": 70, "title": "Half-Life"}])
         self.assertEqual(sorted(found), [48000, 504230])
         self.assertEqual(found[48000][0]["state"], "❌ Broken")
+
+
+class CompatibilityTableTest(unittest.TestCase):
+    TEXT = ("## Status\n\n| Status | Meaning |\n| --- | --- |\n| ✅ Works | Plays. |\n\n## Games\n\n"
+            "| Game | Status | Kit | Engine · Graphics · CPU | Notes |\n| --- | --- | --- | --- | --- |\n"
+            "| [Celeste](https://store.steampowered.com/app/504230/Celeste/) | ✅ Works | 0.10 | FNA · 32-bit | "
+            "Fine. ([#7](https://github.com/x/y/issues/7)) |\n"
+            "| Blur | 🟡 Partial | — | — | Imported copy \\| one pad. |\n"
+            "| [DDLC](https://teamsalvato.itch.io/ddlc) | ⛔ Refused | 0.13 | — | — |\n\n"
+            "## Kits\n\n| Kit | What changed for games |\n| --- | --- |\n| 0.18 | Controllers. |\n")
+
+    def test_only_the_games_table_is_read(self):
+        from playden_tester.reported import parse_compatibility
+        rows = parse_compatibility(self.TEXT)
+        self.assertEqual([row["game"] for row in rows], ["Celeste", "Blur", "DDLC"])
+        self.assertEqual(rows[0], {"game": "Celeste", "app": 504230, "status": "✅ Works", "kit": "0.10",
+                                   "url": "https://store.steampowered.com/app/504230/Celeste/",
+                                   "engine": "FNA · 32-bit", "notes": "Fine. ([#7](https://github.com/x/y/issues/7))"})
+
+    def test_rows_without_a_steam_link_or_details(self):
+        from playden_tester.reported import parse_compatibility
+        _, blur, ddlc = parse_compatibility(self.TEXT)
+        self.assertEqual((blur["app"], blur["url"], blur["kit"], blur["engine"]), (None, "", "", ""))
+        self.assertEqual(blur["notes"], "Imported copy | one pad.")
+        self.assertEqual((ddlc["app"], ddlc["url"], ddlc["notes"]), (None, "https://teamsalvato.itch.io/ddlc", ""))
+
+    def test_a_list_without_a_games_table_is_empty(self):
+        from playden_tester.reported import parse_compatibility
+        self.assertEqual(parse_compatibility("# Compatibility\n\n| Status | Meaning |\n| --- | --- |\n"), [])
+
+    def test_imported_rows_compare_by_the_game_s_own_name(self):
+        from playden_tester.reported import compatibility_key
+        self.assertEqual(compatibility_key("Blur (GOG, imported)"), compatibility_key("BLUR®"))
+        self.assertNotEqual(compatibility_key("Escape Simulator 2"), compatibility_key("Escape Simulator"))
+        self.assertNotEqual(compatibility_key("Doom (2016)"), compatibility_key("Doom"))
+
+
+class UnplacedReportsTest(unittest.TestCase):
+    def report(self, number, title, body=""):
+        return {"number": number, "title": title, "body": body, "state": "open", "html_url": f"u{number}",
+                "labels": [{"name": "test report"}]}
+
+    def test_a_store_link_places_a_report_on_a_game_of_its_own(self):
+        from playden_tester.reported import reported_games, unplaced_reports
+        issues = [self.report(647, "[Test] <Deadlock>", "https://store.steampowered.com/app/1422450/Deadlock/"),
+                  self.report(648, "[Test] Deadlock again", "see steamdb.info/app/1422450/"),
+                  self.report(649, "[Test] No link anywhere"),
+                  {**self.report(650, "Bug", "https://store.steampowered.com/app/5"), "labels": [{"name": "bug"}]}]
+        names, reports, unlinked = unplaced_reports(issues, reported_games(issues, [{"app": 1, "title": "One"}]))
+        self.assertEqual(names, {1422450: "Deadlock"})
+        self.assertEqual([entry["number"] for entry in reports[1422450]], [647, 648])
+        self.assertEqual(unlinked, 1)
+
+    def test_a_report_on_a_known_game_adds_no_game_for_its_other_links(self):
+        from playden_tester.reported import reported_games, unplaced_reports
+        issues = [self.report(1, "[Test] One", "Better than https://store.steampowered.com/app/2")]
+        self.assertEqual(unplaced_reports(issues, reported_games(issues, [{"app": 1, "title": "One"}])), ({}, {}, 0))
+
+    def test_only_the_first_link_of_a_report_counts(self):
+        from playden_tester.reported import unplaced_reports
+        issues = [self.report(1, "[Test] Ten", "store.steampowered.com/app/10 and store.steampowered.com/app/20")]
+        self.assertEqual(unplaced_reports(issues, {})[0], {10: "Ten"})
+
+    def test_reports_outside_the_library_do_not_change_what_is_tested(self):
+        from playden_tester.lists import still_to_test
+        games = [{"app": 1, "title": "One", "controller": "full"}]
+        self.assertEqual(still_to_test(games, {1422450}, set()), games)
+
+
+class ReportedCommandTest(unittest.TestCase):
+    TEXT = ("| Game | Status | Kit | Notes |\n| --- | --- | --- | --- |\n"
+            "| [Mine](https://store.steampowered.com/app/1) | ✅ Works | 0.10 | Fine |\n"
+            "| [Other](https://store.steampowered.com/app/2) | ❌ Broken | 0.12 | No |\n")
+    REPORT = {"number": 8, "title": "[Test] Other", "state": "open", "html_url": "u", "body": "",
+              "labels": [{"name": "test report"}]}
+
+    def run_it(self, folder, text):
+        from argparse import Namespace
+        from playden_tester import cli
+        folder = Path(folder)
+        (folder / "list.json").write_text(json.dumps([{"app": 1, "title": "Mine"}]), encoding="utf-8")
+        args = Namespace(list=[folder / "list.json"], repo="x/y", out=folder / "others.json",
+                         compatibility=folder / "compatibility.json")
+        with mock.patch("playden_tester.reported.fetch_issues", return_value=[self.REPORT]),                 mock.patch("playden_tester.reported.fetch_compatibility", return_value=text),                 mock.patch("builtins.print"):
+            self.assertEqual(cli.cmd_reported(args), 0)
+        return json.loads(args.out.read_text(encoding="utf-8")), args.compatibility
+
+    def test_the_whole_list_is_kept_and_reports_cover_its_other_games(self):
+        with tempfile.TemporaryDirectory() as folder:
+            rows, kept = self.run_it(folder, self.TEXT)
+            self.assertEqual([row["game"] for row in json.loads(kept.read_text(encoding="utf-8"))], ["Mine", "Other"])
+        self.assertEqual({row["app"]: [i["number"] for i in row["issues"]] for row in rows}, {1: [None], 2: [8]})
+
+    def test_a_report_on_a_game_nothing_knows_is_kept(self):
+        report = {**self.REPORT, "title": "[Test] Deadlock", "body": "store.steampowered.com/app/1422450"}
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(self, "REPORT", report):
+            rows, _ = self.run_it(folder, self.TEXT)
+        self.assertEqual({row["app"]: row["title"] for row in rows}, {1: "Mine", 1422450: "Deadlock"})
+
+    def test_an_empty_answer_keeps_the_last_copy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            self.run_it(folder, self.TEXT)
+            with redirect_stderr(io.StringIO()):
+                _, kept = self.run_it(folder, "")
+            self.assertEqual(len(json.loads(kept.read_text(encoding="utf-8"))), 2)
 
 
 class StoreFeaturesTest(unittest.TestCase):
