@@ -329,6 +329,12 @@ class ImportedTest(unittest.TestCase):
             self.folder(root, status="crashed")
             self.assertEqual(read_imported(root)[0]["group"], "failed")
 
+    def test_a_program_that_runs_but_does_not_work_counts_as_failed(self):
+        with tempfile.TemporaryDirectory() as root:
+            self.folder(root, status="broken")
+            row = read_imported(root)[0]
+            self.assertEqual((row["group"], row["result"]), ("failed", "Doesn't work"))
+
     def test_only_imported_folders_count(self):
         with tempfile.TemporaryDirectory() as root:
             self.folder(root, "123-a-steam-game")

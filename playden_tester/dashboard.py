@@ -16,11 +16,11 @@ from pathlib import Path
 from .reported import compatibility_key
 
 PASSED = {"survived", "not_closed"}
-FAILED = {"crashed", "exited_early", "did_not_start", "refused"}
+FAILED = {"crashed", "exited_early", "did_not_start", "refused", "broken"}
 STATUS_LABELS = {
     "survived": "Survived", "not_closed": "Left running", "crashed": "Crashed", "exited_early": "Quit early",
     "did_not_start": "Did not start", "refused": "Refused by Playden", "error": "Tester error",
-    "launch_failed": "Could not launch", "skipped": "Skipped", "stuck": "Stuck", "testing": "Testing now",
+    "broken": "Doesn't work", "launch_failed": "Could not launch", "skipped": "Skipped", "stuck": "Stuck", "testing": "Testing now",
     "deferred": "Waiting",
 }
 # One group per game, in the order the page shows them. "bar" names the colour token.
